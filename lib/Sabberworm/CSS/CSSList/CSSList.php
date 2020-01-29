@@ -29,6 +29,7 @@ abstract class CSSList implements Renderable, Commentable {
 	protected $aComments;
 	protected $aContents;
 	protected $iLineNo;
+	protected $aVars;
 
 	public function __construct($iLineNo = 0) {
 		$this->aComments = array();
@@ -64,9 +65,18 @@ abstract class CSSList implements Renderable, Commentable {
 			}
 			$oParserState->consumeWhiteSpace();
 		}
+		$oList->aVars = $oParserState->getVars();
 		if(!$bIsRoot && !$bLenientParsing) {
 			throw new SourceException("Unexpected end of document", $oParserState->currentLine());
 		}
+	}
+
+	public function getVar($sName) {
+		return array_key_exists($sName, $this->aVars) ? $this->aVars[$sName] : NULL;
+	}
+
+	public function getVars() {
+		return $this->aVars;
 	}
 
 	private static function parseListItem(ParserState $oParserState, CSSList $oList) {

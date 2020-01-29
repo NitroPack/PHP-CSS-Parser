@@ -5,6 +5,7 @@ use Sabberworm\CSS\Comment\Comment;
 use Sabberworm\CSS\Parsing\UnexpectedTokenException;
 use Sabberworm\CSS\Parsing\UnexpectedEOFException;
 use Sabberworm\CSS\Settings;
+use Sabberworm\CSS\Value\Value;
 
 class ParserState {
 	const EOF = null;
@@ -18,6 +19,7 @@ class ParserState {
 	private $sCharset;
 	private $iLength;
 	private $iLineNo;
+	private $aVars;
 
 	public function __construct($sText, Settings $oParserSettings, $iLineNo = 1) {
 		$this->oParserSettings = $oParserSettings;
@@ -25,6 +27,19 @@ class ParserState {
 		$this->iCurrentPosition = 0;
 		$this->iLineNo = $iLineNo;
 		$this->setCharset($this->oParserSettings->sDefaultCharset);
+		$this->aVars = array();
+	}
+
+	public function addVar($oVar) {
+		$this->aVars[$oVar->getName()] = $oVar;
+	}
+
+	public function getVar($sName) {
+		return array_key_exists($sName, $this->aVars) ? $this->aVars[$sName] : NULL;
+	}
+
+	public function getVars() {
+		return $this->aVars;
 	}
 
 	public function setCharset($sCharset) {
@@ -32,6 +47,23 @@ class ParserState {
 		$this->aText = $this->strsplit($this->sText);
 		if( is_array($this->aText) ) {
 			$this->iLength = count($this->aText);
+		}
+	}
+
+	public function expandVar() {
+		$oVar = Value::parseVar($this);
+		if ($oVar) {
+			$aVarArguments = $oVar->getArguments();
+			$oVarValue = $this->getVar(array_shift($aVarArguments));
+			if ($oVarValue) {
+				$sVarValue = (string)$oVarValue->getValue();
+			} else {
+				$sVarValue = implode(",", $aVarArguments);
+			}
+			if ($sVarValue) {
+				array_splice($this->aText, $this->iCurrentPosition, 0, $this->strsplit($sVarValue));
+				$this->iLength = count($this->aText);
+			}
 		}
 	}
 

@@ -62,6 +62,18 @@ abstract class Value implements Renderable {
 		return $aStack[0];
 	}
 
+	public static function parseVar(ParserState $oParserState) {
+		if ($oParserState->comes("var")) {
+			$oParserState->consumeUntil("(", false, true);
+			$aArguments = Value::parseValue($oParserState, array('=', ' ', ','));
+			$oFunction = new CSSFunction("var", $aArguments, ',', $oParserState->currentLine());
+			$oParserState->consume(")");
+			return $oFunction;
+		} else {
+			return NULL;
+		}
+	}
+
 	public static function parseIdentifierOrFunction(ParserState $oParserState, $bIgnoreCase = false) {
 		$sResult = $oParserState->parseIdentifier($bIgnoreCase);
 

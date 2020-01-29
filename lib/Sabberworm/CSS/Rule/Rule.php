@@ -4,6 +4,7 @@ namespace Sabberworm\CSS\Rule;
 
 use Sabberworm\CSS\Comment\Commentable;
 use Sabberworm\CSS\Parsing\ParserState;
+use Sabberworm\CSS\Parsing\CssVar;
 use Sabberworm\CSS\Renderable;
 use Sabberworm\CSS\Value\RuleValueList;
 use Sabberworm\CSS\Value\Value;
@@ -38,6 +39,9 @@ class Rule implements Renderable, Commentable {
 		$oParserState->consume(':');
 		$oValue = Value::parseValue($oParserState, self::listDelimiterForRule($oRule->getRule()));
 		$oRule->setValue($oValue);
+		if (substr($oRule->getRule(), 0, 2) === "--") {
+			$oParserState->addVar(new CssVar($oRule->getRule(), $oValue));
+		}
 		if ($oParserState->getSettings()->bLenientParsing) {
 			while ($oParserState->comes('\\')) {
 				$oParserState->consume('\\');

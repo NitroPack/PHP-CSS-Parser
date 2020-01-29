@@ -40,8 +40,10 @@ class Color extends CSSFunction {
 			$oParserState->consumeWhiteSpace();
 			$oParserState->consume('(');
 			$iLength = $oParserState->strlen($sColorMode);
+			$oParserState->expandVar();
 			for ($i = 0; $i < $iLength; ++$i) {
 				$oParserState->consumeWhiteSpace();
+				$oParserState->expandVar();
 				$aColor[$sColorMode[$i]] = Size::parse($oParserState, true);
 				$oParserState->consumeWhiteSpace();
 				if ($i < ($iLength - 1)) {
