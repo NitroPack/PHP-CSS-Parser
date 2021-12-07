@@ -18,14 +18,14 @@ abstract class Value implements Renderable {
 		$oParserState->consumeWhiteSpace();
 		//Build a list of delimiters and parsed values
 		while (!($oParserState->comes('}') || $oParserState->comes(';') || $oParserState->comes('!') || $oParserState->comes(')') || $oParserState->comes('\\'))) {
-			if (count($aStack) > 0) {
+            if (count($aStack) > 0) {
 				$bFoundDelimiter = false;
 				foreach ($aListDelimiters as $sDelimiter) {
 					if ($oParserState->comes($sDelimiter)) {
-						array_push($aStack, $oParserState->consume($sDelimiter));
-						$oParserState->consumeWhiteSpace();
-						$bFoundDelimiter = true;
-						break;
+                        array_push($aStack, $oParserState->consume($sDelimiter));
+                        $oParserState->consumeWhiteSpace();
+                        $bFoundDelimiter = true;
+                        break;
 					}
 				}
 				if (!$bFoundDelimiter) {
@@ -86,7 +86,7 @@ abstract class Value implements Renderable {
 			$oValue = URL::parse($oParserState);
 		} else if ($oParserState->comes('calc', true) || $oParserState->comes('-webkit-calc', true) || $oParserState->comes('-moz-calc', true)) {
 			$oValue = CalcFunction::parse($oParserState);
-		} else if ($oParserState->comes("'") || $oParserState->comes('"')) {
+		} else if ($oParserState->comes("'") || $oParserState->comes('"') || $oParserState->comes("\'") || $oParserState->comes('\"')) {
 			$oValue = CSSString::parse($oParserState);
 		} else if ($oParserState->comes("progid:") && $oParserState->getSettings()->bLenientParsing) {
 			$oValue = self::parseMicrosoftFilter($oParserState);

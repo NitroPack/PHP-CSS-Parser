@@ -15,13 +15,17 @@ class CSSString extends PrimitiveValue {
 	}
 
 	public static function parse(ParserState $oParserState) {
-		$sBegin = $oParserState->peek();
+		$sBegin = $oParserState->peek(2);
 		$sQuote = null;
-		if ($sBegin === "'") {
+		if ($sBegin[0] === "'") {
 			$sQuote = "'";
-		} else if ($sBegin === '"') {
+		} elseif ($sBegin[0] === '"') {
 			$sQuote = '"';
-		}
+		} elseif ($sBegin === '\"') {
+            $sQuote = '\"';
+        } elseif ($sBegin === "\'") {
+            $sQuote = "\'";
+        }
 		if ($sQuote !== null) {
 			$oParserState->consume($sQuote);
 		}
