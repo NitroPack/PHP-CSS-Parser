@@ -78,6 +78,7 @@ class Color extends CSSFunction
             } else {
                 $sColorTarget = $sColorMode;
             }
+
             $iLength = $oParserState->strlen($sColorTarget);
             for ($i = 0; $i < $iLength; ++$i) {
                 $oParserState->consumeWhiteSpace();
@@ -85,7 +86,7 @@ class Color extends CSSFunction
                     $aColor[$sColorTarget[$i]] = CSSFunction::parseIdentifierOrFunction($oParserState);
                     $bContainsVarOrCalc = true;
                 } elseif ($oParserState->comes('calc')) {
-                    $aColor[$sColorMode[$i]] = CalcFunction::parse($oParserState);
+                    $aColor[$sColorTarget[$i]] = CalcFunction::parse($oParserState);
                     $bContainsVarOrCalc = true;
                 } else {
                     $aColor[$sColorTarget[$i]] = Size::parse($oParserState, true);
@@ -101,6 +102,33 @@ class Color extends CSSFunction
                     if ($oParserState->comes(',')) {
                         $oParserState->consume(',');
                     } elseif ($oParserState->comes('/')) {
+                        // According to https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/rgb 
+                        // and https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/hsl 
+                        // '/' is used to separate the color from the alpha channel information
+                        // in rgb or hsl color functions (it is placed before the fourth argument). 
+
+                        if (in_array($sColorMode, ["hsl", "rgb"]) && count($aColor) !== 3) {
+                            throw new UnexpectedTokenException(
+                                'Unexpected token',
+                                '/',
+                                'custom',
+                                $oParserState->currentLine()
+                            );
+                        }
+
+                        // If we have a hsl or rgb color function with an alpha channel,
+                        // we need to switch the color mode to rgba or hsla accordingly.
+                        switch ($sColorMode) {
+                            case "rgb":
+                                $sColorMode = "rgba";
+                                break;
+                            case "hsl":
+                                $sColorMode = "hsla";
+                                break;
+                            default:
+                                break;
+                        }
+
                         $oParserState->consume('/');
                     } elseif ($oParserState->comes(')')) {
                         // No alpha channel information

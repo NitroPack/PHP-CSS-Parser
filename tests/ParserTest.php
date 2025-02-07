@@ -169,7 +169,15 @@ final class ParserTest extends TestCase
             . '#css4-rgba {background-color: rgba(242,245,249,45%);background-color: #f2f5f9;}'
             . "\n"
             . '#calc {background-color: rgba(var(--some-rgb),calc(var(--some-alpha) * .1));'
-            . 'background-color: hsla(var(--some-hsl),calc(var(--some-alpha) * .1));}',
+            . 'background-color: hsla(var(--some-hsl),calc(var(--some-alpha) * .1));}'
+            . "\n"
+            . '#hsl-calc {background-color: hsla(0,0%,10%,calc(1 - var(--hover,0) * .25));}'
+            . "\n"
+            . "#hsl-alpha-numeric {background-color: hsla(0,0%,10%,.5);}"
+            . "\n"
+            . '#rgb-calc {background-color: rgba(0,0%,10%,calc(1 - var(--hover,0) * .25));}'
+            . "\n"
+            . "#rgb-alpha-numeric {background-color: rgba(0,0%,10%,.5);}",
             $oDoc->render()
         );
     }
@@ -859,6 +867,30 @@ body {background-color: red;}';
 @media only screen and (max-width: 800px) {.has-sidebar #content {order: 1;}
 	.has-sidebar #sidebar {order: 2;margin-top: 50px;}
 	.has-sidebar #sidebar-2 {order: 3;margin-top: 50px;}}';
+        self::assertSame($sExpected, $oDoc->render());
+    }
+
+    /**
+     * @test
+     */
+    public function invalidHslOrRgbInFile(): void 
+    {
+        $oDoc = self::parsedStructureForFile('invalid-hsl-rgb', Settings::create()->withMultibyteSupport(true));
+        $sExpected = '#hsl-1 {}'
+        . "\n"
+        . '#hsl-2 {}'
+        . "\n"
+        . '#hsl-3 {}'
+        . "\n"
+        . '#hsl-4 {}'
+        . "\n"
+        . "#rgb-1 {}"
+        . "\n"
+        . '#rgb-2 {}'
+        . "\n"
+        . '#rgb-3 {}'
+        . "\n"
+        . '#rgb-4 {}';
         self::assertSame($sExpected, $oDoc->render());
     }
 

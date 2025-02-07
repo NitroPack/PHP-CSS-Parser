@@ -1,0 +1,31 @@
+#hsl-1 {
+	background-color: hsl(0 / 0% 10% 0.5);
+}
+
+#hsl-2 {
+    background-color: hsl(0 0% / 10% 0.5);
+}
+
+#hsl-3 {
+    background-color: hsl(0 0%/10% 0.5);
+}
+
+#hsl-4 {
+    background-color: hsl(0 / 0% 10% calc(1 - var(--hover, 0) * 0.25));
+}
+
+#rgb-1 {
+    background-color: rgb(0 / 0% 10% 0.5);
+}
+
+#rgb-2 {
+    background-color: rgb(0 0% / 10% 0.5);
+}
+
+#rgb-3 {
+    background-color: rgb(0 0%/10% 0.5);
+}
+
+#rgb-4 {
+    background-color: rgb(0 / 0% 10% calc(1 - var(--hover, 0) * 0.25));
+}
