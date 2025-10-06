@@ -1,16 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sabberworm\CSS\Tests\CSSList;
 
 use PHPUnit\Framework\TestCase;
-use Sabberworm\CSS\Comment\Commentable;
 use Sabberworm\CSS\CSSList\AtRuleBlockList;
 use Sabberworm\CSS\Parser;
-use Sabberworm\CSS\Renderable;
 use Sabberworm\CSS\Settings;
 
 /**
  * @covers \Sabberworm\CSS\CSSList\AtRuleBlockList
+ * @covers \Sabberworm\CSS\CSSList\CSSBlockList
+ * @covers \Sabberworm\CSS\CSSList\CSSList
  */
 final class AtRuleBlockListTest extends TestCase
 {
@@ -28,53 +30,25 @@ final class AtRuleBlockListTest extends TestCase
     /**
      * @return array<string, array{0: string}>
      */
-    public static function provideSyntacticlyCorrectAtRule(): array
+    public static function provideSyntacticallyCorrectAtRule(): array
     {
         return [
             'media print' => ['@media print { html { background: white; color: black; } }'],
             'keyframes' => ['@keyframes mymove { from { top: 0px; } }'],
-            'supports' => ['
-                @supports (display: flex) {
-                    .flex-container > * {
-                        text-shadow: 0 0 2px blue;
-                        float: none;
+            'supports' => [
+                '
+                    @supports (display: flex) {
+                        .flex-container > * {
+                            text-shadow: 0 0 2px blue;
+                            float: none;
+                        }
+                        .flex-container {
+                            display: flex;
+                        }
                     }
-                    .flex-container {
-                        display: flex;
-                    }
-                }
-            '],
+                ',
+            ],
         ];
-    }
-
-    /**
-     * @test
-     */
-    public function implementsAtRule(): void
-    {
-        $subject = new AtRuleBlockList('');
-
-        self::assertInstanceOf(AtRuleBlockList::class, $subject);
-    }
-
-    /**
-     * @test
-     */
-    public function implementsRenderable(): void
-    {
-        $subject = new AtRuleBlockList('');
-
-        self::assertInstanceOf(Renderable::class, $subject);
-    }
-
-    /**
-     * @test
-     */
-    public function implementsCommentable(): void
-    {
-        $subject = new AtRuleBlockList('');
-
-        self::assertInstanceOf(Commentable::class, $subject);
     }
 
     /**
@@ -87,6 +61,7 @@ final class AtRuleBlockListTest extends TestCase
         $contents = (new Parser($css))->parse()->getContents();
         $atRuleBlockList = $contents[0];
 
+        self::assertInstanceOf(AtRuleBlockList::class, $atRuleBlockList);
         self::assertSame('media', $atRuleBlockList->atRuleName());
     }
 
@@ -100,6 +75,7 @@ final class AtRuleBlockListTest extends TestCase
         $contents = (new Parser($css))->parse()->getContents();
         $atRuleBlockList = $contents[0];
 
+        self::assertInstanceOf(AtRuleBlockList::class, $atRuleBlockList);
         self::assertSame('(min-width: 768px)', $atRuleBlockList->atRuleArgs());
     }
 
@@ -107,9 +83,9 @@ final class AtRuleBlockListTest extends TestCase
      * @test
      *
      * @dataProvider provideMinWidthMediaRule
-     * @dataProvider provideSyntacticlyCorrectAtRule
+     * @dataProvider provideSyntacticallyCorrectAtRule
      */
-    public function parsesSyntacticlyCorrectAtRuleInStrictMode(string $css): void
+    public function parsesSyntacticallyCorrectAtRuleInStrictMode(string $css): void
     {
         $contents = (new Parser($css, Settings::create()->beStrict()))->parse()->getContents();
 

@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Sabberworm\CSS\Tests\Value;
+namespace Sabberworm\CSS\Tests\Unit\Value;
 
 use PHPUnit\Framework\TestCase;
+use Sabberworm\CSS\CSSElement;
+use Sabberworm\CSS\OutputFormat;
 use Sabberworm\CSS\Parsing\ParserState;
 use Sabberworm\CSS\Settings;
+use Sabberworm\CSS\Tests\Unit\Value\Fixtures\ConcreteValue;
+use Sabberworm\CSS\Value\CSSFunction;
 use Sabberworm\CSS\Value\Value;
 
 /**
@@ -17,28 +21,33 @@ final class ValueTest extends TestCase
     /**
      * the default set of delimiters for parsing most values
      *
-     * @see \Rule\Rule::listDelimiterForRule
+     * @see \Sabberworm\CSS\Rule\Rule::listDelimiterForRule
      *
-     * @var array<int, string>
+     * @var list<non-empty-string>
      */
     private const DEFAULT_DELIMITERS = [',', ' ', '/'];
+
+    /**
+     * @test
+     */
+    public function implementsCSSElement(): void
+    {
+        $subject = new ConcreteValue();
+
+        self::assertInstanceOf(CSSElement::class, $subject);
+    }
 
     /**
      * @return array<string, array{0: string}>
      */
     public static function provideArithmeticOperator(): array
     {
-        $units = ['+', '-', '*', '/'];
-
-        return \array_combine(
-            $units,
-            \array_map(
-                function (string $unit): array {
-                    return [$unit];
-                },
-                $units
-            )
-        );
+        return [
+            '+' => ['+'],
+            '-' => ['-'],
+            '*' => ['*'],
+            '/' => ['/'],
+        ];
     }
 
     /**
@@ -53,11 +62,12 @@ final class ValueTest extends TestCase
             self::DEFAULT_DELIMITERS
         );
 
-        self::assertSame('max(300px,50vh ' . $operator . ' 10px)', (string) $subject);
+        self::assertInstanceOf(CSSFunction::class, $subject);
+        self::assertSame('max(300px,50vh ' . $operator . ' 10px)', $subject->render(OutputFormat::createCompact()));
     }
 
     /**
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{'to be parsed': non-empty-string, 'expected': non-empty-string}>
      * The first datum is a template for the parser (using `sprintf` insertion marker `%s` for some expression).
      * The second is for the expected result, which may have whitespace and trailing semicolon removed.
      */
@@ -95,7 +105,11 @@ final class ValueTest extends TestCase
             self::DEFAULT_DELIMITERS
         );
 
-        self::assertSame(\sprintf($expectedResultTemplate, $expression), (string) $subject);
+        self::assertInstanceOf(CSSFunction::class, $subject);
+        self::assertSame(
+            \sprintf($expectedResultTemplate, $expression),
+            $subject->render(OutputFormat::createCompact())
+        );
     }
 
     /**
@@ -123,6 +137,10 @@ final class ValueTest extends TestCase
             self::DEFAULT_DELIMITERS
         );
 
-        self::assertSame('max(300px,' . $leftOperand . ' + ' . $rightOperand . ')', (string) $subject);
+        self::assertInstanceOf(CSSFunction::class, $subject);
+        self::assertSame(
+            'max(300px,' . $leftOperand . ' + ' . $rightOperand . ')',
+            $subject->render(OutputFormat::createCompact())
+        );
     }
 }

@@ -40,10 +40,6 @@ return (new \PhpCsFixer\Config())
             'yoda_style' => ['equal' => false, 'identical' => false, 'less_and_greater' => false],
 
             // function notation
-            'native_function_invocation' => ['include' => ['@all']],
-            'nullable_type_declaration' => [
-                'syntax' => 'question_mark',
-            ],
             'nullable_type_declaration_for_default_null_value' => true,
 
             // import
@@ -54,6 +50,7 @@ return (new \PhpCsFixer\Config())
             'combine_consecutive_unsets' => true,
             'dir_constant' => true,
             'is_null' => true,
+            'nullable_type_declaration' => true,
 
             // namespace notation
             'no_leading_namespace_whitespace' => true,
@@ -92,11 +89,14 @@ return (new \PhpCsFixer\Config())
             'semicolon_after_instruction' => true,
 
             // strict
-            // 'declare_strict_types' => true, // Note: We'll need to add some casts first.
+            'declare_strict_types' => true,
             'strict_param' => true,
 
             // string notation
             'single_quote' => true,
             'string_implicit_backslashes' => ['single_quoted' => 'escape'],
+
+            // whitespace
+            'statement_indentation' => false,
         ]
     );

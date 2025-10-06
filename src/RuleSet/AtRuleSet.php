@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sabberworm\CSS\RuleSet;
 
 use Sabberworm\CSS\OutputFormat;
@@ -14,58 +16,53 @@ use Sabberworm\CSS\Property\AtRule;
 class AtRuleSet extends RuleSet implements AtRule
 {
     /**
-     * @var string
+     * @var non-empty-string
      */
-    private $sType;
+    private $type;
 
     /**
      * @var string
      */
-    private $sArgs;
+    private $arguments;
 
     /**
-     * @param string $sType
-     * @param string $sArgs
-     * @param int $iLineNo
+     * @param non-empty-string $type
+     * @param int<1, max>|null $lineNumber
      */
-    public function __construct($sType, $sArgs = '', $iLineNo = 0)
+    public function __construct(string $type, string $arguments = '', ?int $lineNumber = null)
     {
-        parent::__construct($iLineNo);
-        $this->sType = $sType;
-        $this->sArgs = $sArgs;
-    }
-
-    /**
-     * @return string
-     */
-    public function atRuleName()
-    {
-        return $this->sType;
+        parent::__construct($lineNumber);
+        $this->type = $type;
+        $this->arguments = $arguments;
     }
 
     /**
-     * @return string
+     * @return non-empty-string
      */
-    public function atRuleArgs()
+    public function atRuleName(): string
     {
-        return $this->sArgs;
+        return $this->type;
     }
 
-    public function __toString(): string
+    public function atRuleArgs(): string
     {
-        return $this->render(new OutputFormat());
+        return $this->arguments;
     }
 
-    public function render(OutputFormat $oOutputFormat): string
+    /**
+     * @return non-empty-string
+     */
+    public function render(OutputFormat $outputFormat): string
     {
-        $sResult = $oOutputFormat->comments($this);
-        $sArgs = $this->sArgs;
-        if ($sArgs) {
-            $sArgs = ' ' . $sArgs;
+        $formatter = $outputFormat->getFormatter();
+        $result = $formatter->comments($this);
+        $arguments = $this->arguments;
+        if ($arguments !== '') {
+            $arguments = ' ' . $arguments;
         }
-        $sResult .= "@{$this->sType}$sArgs{$oOutputFormat->spaceBeforeOpeningBrace()}{";
-        $sResult .= $this->renderRules($oOutputFormat);
-        $sResult .= '}';
-        return $sResult;
+        $result .= "@{$this->type}$arguments{$formatter->spaceBeforeOpeningBrace()}{";
+        $result .= $this->renderRules($outputFormat);
+        $result .= '}';
+        return $result;
     }
 }

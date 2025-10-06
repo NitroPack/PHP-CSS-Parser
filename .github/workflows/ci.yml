@@ -16,11 +16,11 @@ jobs:
         runs-on: ubuntu-22.04
         strategy:
             matrix:
-                php-version: [ '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3' ]
+                php-version: [ '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5' ]
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
             - name: Install PHP
               uses: shivammathur/setup-php@v2
@@ -59,11 +59,11 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                php-version: [ '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3' ]
+                php-version: [ '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5' ]
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
             - name: Install PHP
               uses: shivammathur/setup-php@v2
@@ -103,15 +103,16 @@ jobs:
             fail-fast: false
             matrix:
                 command:
-                    - fixer
-                    - stan
-                    - rector
+                    - composer:normalize
+                    - php:fixer
+                    - php:stan
+                    - php:rector
                 php-version:
                     - '8.3'
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
             - name: Install PHP
               uses: shivammathur/setup-php@v2
@@ -138,8 +139,10 @@ jobs:
                   composer show;
 
             - name: Install development tools
+              env:
+                  GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  phive --no-progress install --trust-gpg-keys BBAB5DF0A0D6672989CF1869E82B2FB314E9906E
+                  phive --no-progress install --trust-gpg-keys 0FDE18AE1D09E19F60F6B1CBC00543248C87FB13,BBAB5DF0A0D6672989CF1869E82B2FB314E9906E
 
             - name: Run Command
-              run: composer ci:php:${{ matrix.command }}
+              run: composer ci:${{ matrix.command }}

@@ -6,6 +6,9 @@ updates:
       directory: "/"
       schedule:
           interval: "daily"
+      commit-message:
+          prefix: "[Dependabot] "
+      milestone: 10
 
     - package-ecosystem: "composer"
       directory: "/"
@@ -13,4 +16,14 @@ updates:
           interval: "daily"
       allow:
           - dependency-type: "development"
+      ignore:
+        - dependency-name: "phpstan/*"
+        - dependency-name: "phpunit/phpunit"
+          versions: [ ">= 9.0.0" ]
+        - dependency-name: "rector/rector"
+        - dependency-name: "thecodingmachine/safe"
+        - dependency-name: "thecodingmachine/phpstan-safe-rule"
       versioning-strategy: "increase"
+      commit-message:
+          prefix: "[Dependabot] "
+      milestone: 10

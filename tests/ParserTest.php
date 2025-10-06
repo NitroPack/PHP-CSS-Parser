@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sabberworm\CSS\Tests;
 
 use PHPUnit\Framework\TestCase;
+use Sabberworm\CSS\Comment\Commentable;
+use Sabberworm\CSS\CSSList\CSSList;
 use Sabberworm\CSS\CSSList\Document;
 use Sabberworm\CSS\CSSList\KeyFrame;
 use Sabberworm\CSS\OutputFormat;
@@ -10,6 +14,7 @@ use Sabberworm\CSS\Parser;
 use Sabberworm\CSS\Parsing\OutputException;
 use Sabberworm\CSS\Parsing\SourceException;
 use Sabberworm\CSS\Parsing\UnexpectedTokenException;
+use Sabberworm\CSS\Position\Positionable;
 use Sabberworm\CSS\Property\AtRule;
 use Sabberworm\CSS\Property\Charset;
 use Sabberworm\CSS\Property\CSSNamespace;
@@ -19,28 +24,24 @@ use Sabberworm\CSS\RuleSet\AtRuleSet;
 use Sabberworm\CSS\RuleSet\DeclarationBlock;
 use Sabberworm\CSS\RuleSet\RuleSet;
 use Sabberworm\CSS\Settings;
+use Sabberworm\CSS\Value\CalcFunction;
 use Sabberworm\CSS\Value\Color;
 use Sabberworm\CSS\Value\Size;
 use Sabberworm\CSS\Value\URL;
+use Sabberworm\CSS\Value\ValueList;
+
+use function Safe\file_get_contents;
+use function Safe\opendir;
 
 /**
  * @covers \Sabberworm\CSS\Parser
- * @covers \Sabberworm\CSS\CSSList\Document::parse
- * @covers \Sabberworm\CSS\Rule\Rule::parse
- * @covers \Sabberworm\CSS\RuleSet\DeclarationBlock::parse
- * @covers \Sabberworm\CSS\Value\CalcFunction::parse
- * @covers \Sabberworm\CSS\Value\Color::parse
- * @covers \Sabberworm\CSS\Value\CSSString::parse
- * @covers \Sabberworm\CSS\Value\LineName::parse
- * @covers \Sabberworm\CSS\Value\Size::parse
- * @covers \Sabberworm\CSS\Value\URL::parse
  */
 final class ParserTest extends TestCase
 {
     /**
      * @test
      */
-    public function parseForOneRuleSetReturnsDocumentWithOneRuleSet(): void
+    public function parseForOneDeclarationBlockReturnsDocumentWithOneDeclarationBlock(): void
     {
         $css = '.thing { left: 10px; }';
         $parser = new Parser($css);
@@ -51,7 +52,7 @@ final class ParserTest extends TestCase
 
         $cssList = $document->getContents();
         self::assertCount(1, $cssList);
-        self::assertInstanceOf(RuleSet::class, $cssList[0]);
+        self::assertInstanceOf(DeclarationBlock::class, $cssList[0]);
     }
 
     /**
@@ -59,30 +60,27 @@ final class ParserTest extends TestCase
      */
     public function files(): void
     {
-        $sDirectory = __DIR__ . '/fixtures';
-        if ($rHandle = \opendir($sDirectory)) {
-            /* This is the correct way to loop over the directory. */
-            while (false !== ($sFileName = \readdir($rHandle))) {
-                if (\strpos($sFileName, '.') === 0) {
-                    continue;
-                }
-                if (\strrpos($sFileName, '.css') !== \strlen($sFileName) - \strlen('.css')) {
-                    continue;
-                }
-                if (\strpos($sFileName, '-') === 0) {
-                    // Either a file which SHOULD fail (at least in strict mode)
-                    // or a future test of a as-of-now missing feature
-                    continue;
-                }
-                $oParser = new Parser(\file_get_contents($sDirectory . '/' . $sFileName));
-                try {
-                    self::assertNotEquals('', $oParser->parse()->render());
-                } catch (\Exception $e) {
-                    self::fail($e);
-                }
+        $directory = __DIR__ . '/fixtures';
+        $directoryHandle = opendir($directory);
+
+        /* This is the correct way to loop over the directory. */
+        while (false !== ($filename = \readdir($directoryHandle))) {
+            if (\strpos($filename, '.') === 0) {
+                continue;
             }
-            \closedir($rHandle);
+            if (\strrpos($filename, '.css') !== \strlen($filename) - \strlen('.css')) {
+                continue;
+            }
+            if (\strpos($filename, '-') === 0) {
+                // Either a file which SHOULD fail (at least in strict mode)
+                // or a future test of an as-of-now missing feature
+                continue;
+            }
+            $parser = new Parser(file_get_contents($directory . '/' . $filename));
+            self::assertNotSame('', $parser->parse()->render());
         }
+
+        \closedir($directoryHandle);
     }
 
     /**
@@ -92,66 +90,69 @@ final class ParserTest extends TestCase
      */
     public function colorParsing(): void
     {
-        $oDoc = self::parsedStructureForFile('colortest');
-        foreach ($oDoc->getAllRuleSets() as $oRuleSet) {
-            if (!$oRuleSet instanceof DeclarationBlock) {
-                continue;
-            }
-            $sSelector = $oRuleSet->getSelectors();
-            $sSelector = $sSelector[0]->getSelector();
-            if ($sSelector === '#mine') {
-                $aColorRule = $oRuleSet->getRules('color');
-                $oColor = $aColorRule[0]->getValue();
-                self::assertSame('red', $oColor);
-                $aColorRule = $oRuleSet->getRules('background-');
-                $oColor = $aColorRule[0]->getValue();
+        $document = self::parsedStructureForFile('colortest');
+        foreach ($document->getAllDeclarationBlocks() as $declarationBlock) {
+            $selectors = $declarationBlock->getSelectors();
+            $selector = $selectors[0]->getSelector();
+            if ($selector === '#mine') {
+                $colorRules = $declarationBlock->getRules('color');
+                $colorRuleValue = $colorRules[0]->getValue();
+                self::assertSame('red', $colorRuleValue);
+                $colorRules = $declarationBlock->getRules('background-');
+                $colorRuleValue = $colorRules[0]->getValue();
+                self::assertInstanceOf(Color::class, $colorRuleValue);
                 self::assertEquals([
-                    'r' => new Size(35.0, null, true, $oColor->getLineNo()),
-                    'g' => new Size(35.0, null, true, $oColor->getLineNo()),
-                    'b' => new Size(35.0, null, true, $oColor->getLineNo()),
-                ], $oColor->getColor());
-                $aColorRule = $oRuleSet->getRules('border-color');
-                $oColor = $aColorRule[0]->getValue();
+                    'r' => new Size(35.0, null, true, $colorRuleValue->getLineNumber()),
+                    'g' => new Size(35.0, null, true, $colorRuleValue->getLineNumber()),
+                    'b' => new Size(35.0, null, true, $colorRuleValue->getLineNumber()),
+                ], $colorRuleValue->getColor());
+                $colorRules = $declarationBlock->getRules('border-color');
+                $colorRuleValue = $colorRules[0]->getValue();
+                self::assertInstanceOf(Color::class, $colorRuleValue);
                 self::assertEquals([
-                    'r' => new Size(10.0, null, true, $oColor->getLineNo()),
-                    'g' => new Size(100.0, null, true, $oColor->getLineNo()),
-                    'b' => new Size(230.0, null, true, $oColor->getLineNo()),
-                ], $oColor->getColor());
-                $oColor = $aColorRule[1]->getValue();
+                    'r' => new Size(10.0, null, true, $colorRuleValue->getLineNumber()),
+                    'g' => new Size(100.0, null, true, $colorRuleValue->getLineNumber()),
+                    'b' => new Size(230.0, null, true, $colorRuleValue->getLineNumber()),
+                ], $colorRuleValue->getColor());
+                $colorRuleValue = $colorRules[1]->getValue();
+                self::assertInstanceOf(Color::class, $colorRuleValue);
                 self::assertEquals([
-                    'r' => new Size(10.0, null, true, $oColor->getLineNo()),
-                    'g' => new Size(100.0, null, true, $oColor->getLineNo()),
-                    'b' => new Size(231.0, null, true, $oColor->getLineNo()),
-                    'a' => new Size('0000.3', null, true, $oColor->getLineNo()),
-                ], $oColor->getColor());
-                $aColorRule = $oRuleSet->getRules('outline-color');
-                $oColor = $aColorRule[0]->getValue();
+                    'r' => new Size(10.0, null, true, $colorRuleValue->getLineNumber()),
+                    'g' => new Size(100.0, null, true, $colorRuleValue->getLineNumber()),
+                    'b' => new Size(231.0, null, true, $colorRuleValue->getLineNumber()),
+                    'a' => new Size('0000.3', null, true, $colorRuleValue->getLineNumber()),
+                ], $colorRuleValue->getColor());
+                $colorRules = $declarationBlock->getRules('outline-color');
+                $colorRuleValue = $colorRules[0]->getValue();
+                self::assertInstanceOf(Color::class, $colorRuleValue);
                 self::assertEquals([
-                    'r' => new Size(34.0, null, true, $oColor->getLineNo()),
-                    'g' => new Size(34.0, null, true, $oColor->getLineNo()),
-                    'b' => new Size(34.0, null, true, $oColor->getLineNo()),
-                ], $oColor->getColor());
-            } elseif ($sSelector === '#yours') {
-                $aColorRule = $oRuleSet->getRules('background-color');
-                $oColor = $aColorRule[0]->getValue();
+                    'r' => new Size(34.0, null, true, $colorRuleValue->getLineNumber()),
+                    'g' => new Size(34.0, null, true, $colorRuleValue->getLineNumber()),
+                    'b' => new Size(34.0, null, true, $colorRuleValue->getLineNumber()),
+                ], $colorRuleValue->getColor());
+            } elseif ($selector === '#yours') {
+                $colorRules = $declarationBlock->getRules('background-color');
+                $colorRuleValue = $colorRules[0]->getValue();
+                self::assertInstanceOf(Color::class, $colorRuleValue);
                 self::assertEquals([
-                    'h' => new Size(220.0, null, true, $oColor->getLineNo()),
-                    's' => new Size(10.0, '%', true, $oColor->getLineNo()),
-                    'l' => new Size(220.0, '%', true, $oColor->getLineNo()),
-                ], $oColor->getColor());
-                $oColor = $aColorRule[1]->getValue();
+                    'h' => new Size(220.0, null, true, $colorRuleValue->getLineNumber()),
+                    's' => new Size(10.0, '%', true, $colorRuleValue->getLineNumber()),
+                    'l' => new Size(220.0, '%', true, $colorRuleValue->getLineNumber()),
+                ], $colorRuleValue->getColor());
+                $colorRuleValue = $colorRules[1]->getValue();
+                self::assertInstanceOf(Color::class, $colorRuleValue);
                 self::assertEquals([
-                    'h' => new Size(220.0, null, true, $oColor->getLineNo()),
-                    's' => new Size(10.0, '%', true, $oColor->getLineNo()),
-                    'l' => new Size(220.0, '%', true, $oColor->getLineNo()),
-                    'a' => new Size(0000.3, null, true, $oColor->getLineNo()),
-                ], $oColor->getColor());
-                $aColorRule = $oRuleSet->getRules('outline-color');
-                self::assertEmpty($aColorRule);
+                    'h' => new Size(220.0, null, true, $colorRuleValue->getLineNumber()),
+                    's' => new Size(10.0, '%', true, $colorRuleValue->getLineNumber()),
+                    'l' => new Size(220.0, '%', true, $colorRuleValue->getLineNumber()),
+                    'a' => new Size(0000.3, null, true, $colorRuleValue->getLineNumber()),
+                ], $colorRuleValue->getColor());
+                $colorRules = $declarationBlock->getRules('outline-color');
+                self::assertEmpty($colorRules);
             }
         }
-        foreach ($oDoc->getAllValues('color') as $sColor) {
-            self::assertSame('red', $sColor);
+        foreach ($document->getAllValues(null, 'color') as $colorValue) {
+            self::assertSame('red', $colorValue);
         }
         self::assertSame(
             '#mine {color: red;border-color: #0a64e6;border-color: rgba(10,100,231,.3);outline-color: #222;'
@@ -165,7 +166,7 @@ final class ParserTest extends TestCase
             . "\n"
             . '#variables-alpha {background-color: rgba(var(--some-rgb),.1);'
             . 'background-color: rgba(var(--some-rg),255,.1);background-color: hsla(var(--some-hsl),.1);}',
-            $oDoc->render()
+            $document->render()
         );
     }
 
@@ -174,47 +175,47 @@ final class ParserTest extends TestCase
      */
     public function unicodeParsing(): void
     {
-        $oDoc = self::parsedStructureForFile('unicode');
-        foreach ($oDoc->getAllDeclarationBlocks() as $oRuleSet) {
-            $sSelector = $oRuleSet->getSelectors();
-            $sSelector = $sSelector[0]->getSelector();
-            if (\substr($sSelector, 0, \strlen('.test-')) !== '.test-') {
+        $document = self::parsedStructureForFile('unicode');
+        foreach ($document->getAllDeclarationBlocks() as $declarationBlock) {
+            $selectors = $declarationBlock->getSelectors();
+            $selector = $selectors[0]->getSelector();
+            if (\substr($selector, 0, \strlen('.test-')) !== '.test-') {
                 continue;
             }
-            $aContentRules = $oRuleSet->getRules('content');
-            $sString = $aContentRules[0]->getValue()->__toString();
-            if ($sSelector == '.test-1') {
-                self::assertSame('" "', $sString);
+            $contentRules = $declarationBlock->getRules('content');
+            $firstContentRuleAsString = $contentRules[0]->getValue()->render(OutputFormat::create());
+            if ($selector === '.test-1') {
+                self::assertSame('" "', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-2') {
-                self::assertSame('"é"', $sString);
+            if ($selector === '.test-2') {
+                self::assertSame('"é"', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-3') {
-                self::assertSame('" "', $sString);
+            if ($selector === '.test-3') {
+                self::assertSame('" "', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-4') {
-                self::assertSame('"𝄞"', $sString);
+            if ($selector === '.test-4') {
+                self::assertSame('"𝄞"', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-5') {
-                self::assertSame('"水"', $sString);
+            if ($selector === '.test-5') {
+                self::assertSame('"水"', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-6') {
-                self::assertSame('"¥"', $sString);
+            if ($selector === '.test-6') {
+                self::assertSame('"¥"', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-7') {
-                self::assertSame('"\\A"', $sString);
+            if ($selector === '.test-7') {
+                self::assertSame('"\\A"', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-8') {
-                self::assertSame('"\\"\\""', $sString);
+            if ($selector === '.test-8') {
+                self::assertSame('"\\"\\""', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-9') {
-                self::assertSame('"\\"\\\'"', $sString);
+            if ($selector === '.test-9') {
+                self::assertSame('"\\"\\\'"', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-10') {
-                self::assertSame('"\\\'\\\\"', $sString);
+            if ($selector === '.test-10') {
+                self::assertSame('"\\\'\\\\"', $firstContentRuleAsString);
             }
-            if ($sSelector == '.test-11') {
-                self::assertSame('"test"', $sString);
+            if ($selector === '.test-11') {
+                self::assertSame('"test"', $firstContentRuleAsString);
             }
         }
     }
@@ -224,9 +225,9 @@ final class ParserTest extends TestCase
      */
     public function unicodeRangeParsing(): void
     {
-        $oDoc = self::parsedStructureForFile('unicode-range');
-        $sExpected = '@font-face {unicode-range: U+0100-024F,U+0259,U+1E??-2EFF,U+202F;}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('unicode-range');
+        $expected = '@font-face {unicode-range: U+0100-024F,U+0259,U+1E??-2EFF,U+202F;}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -234,51 +235,27 @@ final class ParserTest extends TestCase
      */
     public function specificity(): void
     {
-        $oDoc = self::parsedStructureForFile('specificity');
-        $oDeclarationBlock = $oDoc->getAllDeclarationBlocks();
-        $oDeclarationBlock = $oDeclarationBlock[0];
-        $aSelectors = $oDeclarationBlock->getSelectors();
-        foreach ($aSelectors as $oSelector) {
-            switch ($oSelector->getSelector()) {
-                case '#test .help':
-                    self::assertSame(110, $oSelector->getSpecificity());
-                    break;
-                case '#file':
-                    self::assertSame(100, $oSelector->getSpecificity());
-                    break;
-                case '.help:hover':
-                    self::assertSame(20, $oSelector->getSpecificity());
-                    break;
-                case 'ol li::before':
-                    self::assertSame(3, $oSelector->getSpecificity());
-                    break;
-                case 'li.green':
-                    self::assertSame(11, $oSelector->getSpecificity());
-                    break;
-                default:
-                    self::fail('specificity: untested selector ' . $oSelector->getSelector());
-            }
-        }
-        self::assertEquals([new Selector('#test .help', true)], $oDoc->getSelectorsBySpecificity('> 100'));
+        $document = self::parsedStructureForFile('specificity');
+        self::assertEquals([new Selector('#test .help')], $document->getSelectorsBySpecificity('> 100'));
         self::assertEquals(
-            [new Selector('#test .help', true), new Selector('#file', true)],
-            $oDoc->getSelectorsBySpecificity('>= 100')
+            [new Selector('#test .help'), new Selector('#file')],
+            $document->getSelectorsBySpecificity('>= 100')
         );
-        self::assertEquals([new Selector('#file', true)], $oDoc->getSelectorsBySpecificity('=== 100'));
-        self::assertEquals([new Selector('#file', true)], $oDoc->getSelectorsBySpecificity('== 100'));
+        self::assertEquals([new Selector('#file')], $document->getSelectorsBySpecificity('=== 100'));
+        self::assertEquals([new Selector('#file')], $document->getSelectorsBySpecificity('== 100'));
         self::assertEquals([
-            new Selector('#file', true),
-            new Selector('.help:hover', true),
-            new Selector('li.green', true),
-            new Selector('ol li::before', true),
-        ], $oDoc->getSelectorsBySpecificity('<= 100'));
+            new Selector('#file'),
+            new Selector('.help:hover'),
+            new Selector('li.green'),
+            new Selector('ol li::before'),
+        ], $document->getSelectorsBySpecificity('<= 100'));
         self::assertEquals([
-            new Selector('.help:hover', true),
-            new Selector('li.green', true),
-            new Selector('ol li::before', true),
-        ], $oDoc->getSelectorsBySpecificity('< 100'));
-        self::assertEquals([new Selector('li.green', true)], $oDoc->getSelectorsBySpecificity('11'));
-        self::assertEquals([new Selector('ol li::before', true)], $oDoc->getSelectorsBySpecificity(3));
+            new Selector('.help:hover'),
+            new Selector('li.green'),
+            new Selector('ol li::before'),
+        ], $document->getSelectorsBySpecificity('< 100'));
+        self::assertEquals([new Selector('li.green')], $document->getSelectorsBySpecificity('11'));
+        self::assertEquals([new Selector('ol li::before')], $document->getSelectorsBySpecificity('3'));
     }
 
     /**
@@ -286,7 +263,7 @@ final class ParserTest extends TestCase
      */
     public function manipulation(): void
     {
-        $oDoc = self::parsedStructureForFile('atrules');
+        $document = self::parsedStructureForFile('atrules');
         self::assertSame(
             '@charset "utf-8";'
             . "\n"
@@ -318,12 +295,12 @@ final class ParserTest extends TestCase
             . '@media screen and (orientation: landscape) {@-ms-viewport {width: 1024px;height: 768px;}}'
             . "\n"
             . '@region-style #intro {p {color: blue;}}',
-            $oDoc->render()
+            $document->render()
         );
-        foreach ($oDoc->getAllDeclarationBlocks() as $oBlock) {
-            foreach ($oBlock->getSelectors() as $oSelector) {
+        foreach ($document->getAllDeclarationBlocks() as $declarationBlock) {
+            foreach ($declarationBlock->getSelectors() as $selector) {
                 //Loop over all selector parts (the comma-separated strings in a selector) and prepend the id
-                $oSelector->setSelector('#my_id ' . $oSelector->getSelector());
+                $selector->setSelector('#my_id ' . $selector->getSelector());
             }
         }
         self::assertSame(
@@ -357,33 +334,33 @@ final class ParserTest extends TestCase
             . '@media screen and (orientation: landscape) {@-ms-viewport {width: 1024px;height: 768px;}}'
             . "\n"
             . '@region-style #intro {#my_id p {color: blue;}}',
-            $oDoc->render(OutputFormat::create()->setRenderComments(false))
+            $document->render(OutputFormat::create()->setRenderComments(false))
         );
 
-        $oDoc = self::parsedStructureForFile('values');
+        $document = self::parsedStructureForFile('values');
         self::assertSame(
             '#header {margin: 10px 2em 1cm 2%;font-family: Verdana,Helvetica,"Gill Sans",sans-serif;'
             . 'font-size: 10px;color: red !important;background-color: green;'
             . 'background-color: rgba(0,128,0,.7);frequency: 30Hz;transform: rotate(1turn);}
 body {color: green;font: 75% "Lucida Grande","Trebuchet MS",Verdana,sans-serif;}',
-            $oDoc->render()
+            $document->render()
         );
-        foreach ($oDoc->getAllRuleSets() as $oRuleSet) {
-            $oRuleSet->removeRule('font-');
+        foreach ($document->getAllRuleSets() as $ruleSet) {
+            $ruleSet->removeMatchingRules('font-');
         }
         self::assertSame(
             '#header {margin: 10px 2em 1cm 2%;color: red !important;background-color: green;'
             . 'background-color: rgba(0,128,0,.7);frequency: 30Hz;transform: rotate(1turn);}
 body {color: green;}',
-            $oDoc->render()
+            $document->render()
         );
-        foreach ($oDoc->getAllRuleSets() as $oRuleSet) {
-            $oRuleSet->removeRule('background-');
+        foreach ($document->getAllRuleSets() as $ruleSet) {
+            $ruleSet->removeMatchingRules('background-');
         }
         self::assertSame(
             '#header {margin: 10px 2em 1cm 2%;color: red !important;frequency: 30Hz;transform: rotate(1turn);}
 body {color: green;}',
-            $oDoc->render()
+            $document->render()
         );
     }
 
@@ -392,22 +369,22 @@ body {color: green;}',
      */
     public function ruleGetters(): void
     {
-        $oDoc = self::parsedStructureForFile('values');
-        $aBlocks = $oDoc->getAllDeclarationBlocks();
-        $oHeaderBlock = $aBlocks[0];
-        $oBodyBlock = $aBlocks[1];
-        $aHeaderRules = $oHeaderBlock->getRules('background-');
-        self::assertCount(2, $aHeaderRules);
-        self::assertSame('background-color', $aHeaderRules[0]->getRule());
-        self::assertSame('background-color', $aHeaderRules[1]->getRule());
-        $aHeaderRules = $oHeaderBlock->getRulesAssoc('background-');
-        self::assertCount(1, $aHeaderRules);
-        self::assertTrue($aHeaderRules['background-color']->getValue() instanceof Color);
-        self::assertSame('rgba', $aHeaderRules['background-color']->getValue()->getColorDescription());
-        $oHeaderBlock->removeRule($aHeaderRules['background-color']);
-        $aHeaderRules = $oHeaderBlock->getRules('background-');
-        self::assertCount(1, $aHeaderRules);
-        self::assertSame('green', $aHeaderRules[0]->getValue());
+        $document = self::parsedStructureForFile('values');
+        $declarationBlocks = $document->getAllDeclarationBlocks();
+        $headerBlock = $declarationBlocks[0];
+        $bodyBlock = $declarationBlocks[1];
+        $backgroundHeaderRules = $headerBlock->getRules('background-');
+        self::assertCount(2, $backgroundHeaderRules);
+        self::assertSame('background-color', $backgroundHeaderRules[0]->getRule());
+        self::assertSame('background-color', $backgroundHeaderRules[1]->getRule());
+        $backgroundHeaderRules = $headerBlock->getRulesAssoc('background-');
+        self::assertCount(1, $backgroundHeaderRules);
+        self::assertInstanceOf(Color::class, $backgroundHeaderRules['background-color']->getValue());
+        self::assertSame('rgba', $backgroundHeaderRules['background-color']->getValue()->getColorDescription());
+        $headerBlock->removeRule($backgroundHeaderRules['background-color']);
+        $backgroundHeaderRules = $headerBlock->getRules('background-');
+        self::assertCount(1, $backgroundHeaderRules);
+        self::assertSame('green', $backgroundHeaderRules[0]->getValue());
     }
 
     /**
@@ -415,39 +392,43 @@ body {color: green;}',
      */
     public function slashedValues(): void
     {
-        $oDoc = self::parsedStructureForFile('slashed');
+        $document = self::parsedStructureForFile('slashed');
         self::assertSame(
             '.test {font: 12px/1.5 Verdana,Arial,sans-serif;border-radius: 5px 10px 5px 10px/10px 5px 10px 5px;}',
-            $oDoc->render()
+            $document->render()
         );
-        foreach ($oDoc->getAllValues(null) as $mValue) {
-            if ($mValue instanceof Size && $mValue->isSize() && !$mValue->isRelative()) {
-                $mValue->setSize($mValue->getSize() * 3);
+        foreach ($document->getAllValues(null) as $value) {
+            if ($value instanceof Size && $value->isSize() && !$value->isRelative()) {
+                $value->setSize($value->getSize() * 3);
             }
         }
-        foreach ($oDoc->getAllDeclarationBlocks() as $oBlock) {
-            $oRule = $oBlock->getRules('font');
-            $oRule = $oRule[0];
-            $oSpaceList = $oRule->getValue();
-            self::assertSame(' ', $oSpaceList->getListSeparator());
-            $oSlashList = $oSpaceList->getListComponents();
-            $oCommaList = $oSlashList[1];
-            $oSlashList = $oSlashList[0];
-            self::assertSame(',', $oCommaList->getListSeparator());
-            self::assertSame('/', $oSlashList->getListSeparator());
-            $oRule = $oBlock->getRules('border-radius');
-            $oRule = $oRule[0];
-            $oSlashList = $oRule->getValue();
-            self::assertSame('/', $oSlashList->getListSeparator());
-            $oSpaceList1 = $oSlashList->getListComponents();
-            $oSpaceList2 = $oSpaceList1[1];
-            $oSpaceList1 = $oSpaceList1[0];
-            self::assertSame(' ', $oSpaceList1->getListSeparator());
-            self::assertSame(' ', $oSpaceList2->getListSeparator());
+        foreach ($document->getAllDeclarationBlocks() as $declarationBlock) {
+            $fontRules = $declarationBlock->getRules('font');
+            $fontRule = $fontRules[0];
+            $fontRuleValue = $fontRule->getValue();
+            self::assertSame(' ', $fontRuleValue->getListSeparator());
+            $fontRuleValueComponents = $fontRuleValue->getListComponents();
+            $commaList = $fontRuleValueComponents[1];
+            self::assertInstanceOf(ValueList::class, $commaList);
+            $slashList = $fontRuleValueComponents[0];
+            self::assertInstanceOf(ValueList::class, $slashList);
+            self::assertSame(',', $commaList->getListSeparator());
+            self::assertSame('/', $slashList->getListSeparator());
+            $borderRadiusRules = $declarationBlock->getRules('border-radius');
+            $borderRadiusRule = $borderRadiusRules[0];
+            $slashList = $borderRadiusRule->getValue();
+            self::assertSame('/', $slashList->getListSeparator());
+            $slashListComponents = $slashList->getListComponents();
+            $secondSlashListComponent = $slashListComponents[1];
+            self::assertInstanceOf(ValueList::class, $secondSlashListComponent);
+            $firstSlashListComponent = $slashListComponents[0];
+            self::assertInstanceOf(ValueList::class, $firstSlashListComponent);
+            self::assertSame(' ', $firstSlashListComponent->getListSeparator());
+            self::assertSame(' ', $secondSlashListComponent->getListSeparator());
         }
         self::assertSame(
             '.test {font: 36px/1.5 Verdana,Arial,sans-serif;border-radius: 15px 30px 15px 30px/30px 15px 30px 15px;}',
-            $oDoc->render()
+            $document->render()
         );
     }
 
@@ -456,8 +437,8 @@ body {color: green;}',
      */
     public function functionSyntax(): void
     {
-        $oDoc = self::parsedStructureForFile('functions');
-        $sExpected = 'div.main {background-image: linear-gradient(#000,#fff);}'
+        $document = self::parsedStructureForFile('functions');
+        $expected = 'div.main {background-image: linear-gradient(#000,#fff);}'
             . "\n"
             . '.collapser::before, .collapser::-moz-before, .collapser::-webkit-before {content: "»";font-size: 1.2em;'
             . 'margin-right: .2em;-moz-transition-property: -moz-transform;-moz-transition-duration: .2s;'
@@ -470,64 +451,23 @@ body {color: green;}',
             . '-moz-transition-duration: .3s;}'
             . "\n"
             . '.collapser.expanded + * {height: auto;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
 
-        foreach ($oDoc->getAllValues(null, true) as $mValue) {
-            if ($mValue instanceof Size && $mValue->isSize()) {
-                $mValue->setSize($mValue->getSize() * 3);
+        foreach ($document->getAllValues(null, null, true) as $value) {
+            if ($value instanceof Size && $value->isSize()) {
+                $value->setSize($value->getSize() * 3);
             }
         }
-        $sExpected = \str_replace(['1.2em', '.2em', '60%'], ['3.6em', '.6em', '180%'], $sExpected);
-        self::assertSame($sExpected, $oDoc->render());
+        $expected = \str_replace(['1.2em', '.2em', '60%'], ['3.6em', '.6em', '180%'], $expected);
+        self::assertSame($expected, $document->render());
 
-        foreach ($oDoc->getAllValues(null, true) as $mValue) {
-            if ($mValue instanceof Size && !$mValue->isRelative() && !$mValue->isColorComponent()) {
-                $mValue->setSize($mValue->getSize() * 2);
+        foreach ($document->getAllValues(null, null, true) as $value) {
+            if ($value instanceof Size && !$value->isRelative() && !$value->isColorComponent()) {
+                $value->setSize($value->getSize() * 2);
             }
         }
-        $sExpected = \str_replace(['.2s', '.3s', '90deg'], ['.4s', '.6s', '180deg'], $sExpected);
-        self::assertSame($sExpected, $oDoc->render());
-    }
-
-    /**
-     * @test
-     */
-    public function expandShorthands(): void
-    {
-        $oDoc = self::parsedStructureForFile('expand-shorthands');
-        $sExpected = 'body {font: italic 500 14px/1.618 "Trebuchet MS",Georgia,serif;border: 2px solid #f0f;'
-            . 'background: #ccc url("/images/foo.png") no-repeat left top;margin: 1em !important;'
-            . 'padding: 2px 6px 3px;}';
-        self::assertSame($sExpected, $oDoc->render());
-        $oDoc->expandShorthands();
-        $sExpected = 'body {margin-top: 1em !important;margin-right: 1em !important;margin-bottom: 1em !important;'
-            . 'margin-left: 1em !important;padding-top: 2px;padding-right: 6px;padding-bottom: 3px;'
-            . 'padding-left: 6px;border-top-color: #f0f;border-right-color: #f0f;border-bottom-color: #f0f;'
-            . 'border-left-color: #f0f;border-top-style: solid;border-right-style: solid;'
-            . 'border-bottom-style: solid;border-left-style: solid;border-top-width: 2px;'
-            . 'border-right-width: 2px;border-bottom-width: 2px;border-left-width: 2px;font-style: italic;'
-            . 'font-variant: normal;font-weight: 500;font-size: 14px;line-height: 1.618;'
-            . 'font-family: "Trebuchet MS",Georgia,serif;background-color: #ccc;'
-            . 'background-image: url("/images/foo.png");background-repeat: no-repeat;background-attachment: scroll;'
-            . 'background-position: left top;}';
-        self::assertSame($sExpected, $oDoc->render());
-    }
-
-    /**
-     * @test
-     */
-    public function createShorthands(): void
-    {
-        $oDoc = self::parsedStructureForFile('create-shorthands');
-        $sExpected = 'body {font-size: 2em;font-family: Helvetica,Arial,sans-serif;font-weight: bold;'
-            . 'border-width: 2px;border-color: #999;border-style: dotted;background-color: #fff;'
-            . 'background-image: url("foobar.png");background-repeat: repeat-y;margin-top: 2px;margin-right: 3px;'
-            . 'margin-bottom: 4px;margin-left: 5px;}';
-        self::assertSame($sExpected, $oDoc->render());
-        $oDoc->createShorthands();
-        $sExpected = 'body {background: #fff url("foobar.png") repeat-y;margin: 2px 5px 4px 3px;'
-            . 'border: 2px dotted #999;font: bold 2em Helvetica,Arial,sans-serif;}';
-        self::assertSame($sExpected, $oDoc->render());
+        $expected = \str_replace(['.2s', '.3s', '90deg'], ['.4s', '.6s', '180deg'], $expected);
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -535,14 +475,14 @@ body {color: green;}',
      */
     public function namespaces(): void
     {
-        $oDoc = self::parsedStructureForFile('namespaces');
-        $sExpected = '@namespace toto "http://toto.example.org";
+        $document = self::parsedStructureForFile('namespaces');
+        $expected = '@namespace toto "http://toto.example.org";
 @namespace "http://example.com/foo";
 @namespace foo url("http://www.example.com/");
 @namespace foo url("http://www.example.com/");
 foo|test {gaga: 1;}
 |test {gaga: 2;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -550,9 +490,9 @@ foo|test {gaga: 1;}
      */
     public function innerColors(): void
     {
-        $oDoc = self::parsedStructureForFile('inner-color');
-        $sExpected = 'test {background: -webkit-gradient(linear,0 0,0 bottom,from(#006cad),to(hsl(202,100%,49%)));}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('inner-color');
+        $expected = 'test {background: -webkit-gradient(linear,0 0,0 bottom,from(#006cad),to(hsl(202,100%,49%)));}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -560,9 +500,9 @@ foo|test {gaga: 1;}
      */
     public function prefixedGradient(): void
     {
-        $oDoc = self::parsedStructureForFile('webkit');
-        $sExpected = '.test {background: -webkit-linear-gradient(top right,white,black);}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('webkit');
+        $expected = '.test {background: -webkit-linear-gradient(top right,white,black);}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -570,36 +510,36 @@ foo|test {gaga: 1;}
      */
     public function listValueRemoval(): void
     {
-        $oDoc = self::parsedStructureForFile('atrules');
-        foreach ($oDoc->getContents() as $oItem) {
-            if ($oItem instanceof AtRule) {
-                $oDoc->remove($oItem);
+        $document = self::parsedStructureForFile('atrules');
+        foreach ($document->getContents() as $contentItem) {
+            if ($contentItem instanceof AtRule) {
+                $document->remove($contentItem);
                 continue;
             }
         }
-        self::assertSame('html, body {font-size: -.6em;}', $oDoc->render());
+        self::assertSame('html, body {font-size: -.6em;}', $document->render());
 
-        $oDoc = self::parsedStructureForFile('nested');
-        foreach ($oDoc->getAllDeclarationBlocks() as $oBlock) {
-            $oDoc->removeDeclarationBlockBySelector($oBlock, false);
+        $document = self::parsedStructureForFile('nested');
+        foreach ($document->getAllDeclarationBlocks() as $declarationBlock) {
+            $document->removeDeclarationBlockBySelector($declarationBlock, false);
             break;
         }
         self::assertSame(
             'html {some-other: -test(val1);}
 @media screen {html {some: -test(val2);}}
 #unrelated {other: yes;}',
-            $oDoc->render()
+            $document->render()
         );
 
-        $oDoc = self::parsedStructureForFile('nested');
-        foreach ($oDoc->getAllDeclarationBlocks() as $oBlock) {
-            $oDoc->removeDeclarationBlockBySelector($oBlock, true);
+        $document = self::parsedStructureForFile('nested');
+        foreach ($document->getAllDeclarationBlocks() as $declarationBlock) {
+            $document->removeDeclarationBlockBySelector($declarationBlock, true);
             break;
         }
         self::assertSame(
             '@media screen {html {some: -test(val2);}}
 #unrelated {other: yes;}',
-            $oDoc->render()
+            $document->render()
         );
     }
 
@@ -610,18 +550,18 @@ foo|test {gaga: 1;}
     {
         $this->expectException(OutputException::class);
 
-        $oDoc = self::parsedStructureForFile('1readme');
-        $aBlocks = $oDoc->getAllDeclarationBlocks();
-        $oBlock1 = $aBlocks[0];
-        self::assertTrue($oBlock1->removeSelector('html'));
-        $sExpected = '@charset "utf-8";
+        $document = self::parsedStructureForFile('1readme');
+        $declarationsBlocks = $document->getAllDeclarationBlocks();
+        $declarationBlock = $declarationsBlocks[0];
+        self::assertTrue($declarationBlock->removeSelector('html'));
+        $expected = '@charset "utf-8";
 @font-face {font-family: "CrassRoots";src: url("../media/cr.ttf");}
 body {font-size: 1.6em;}';
-        self::assertSame($sExpected, $oDoc->render());
-        self::assertFalse($oBlock1->removeSelector('html'));
-        self::assertTrue($oBlock1->removeSelector('body'));
+        self::assertSame($expected, $document->render());
+        self::assertFalse($declarationBlock->removeSelector('html'));
+        self::assertTrue($declarationBlock->removeSelector('body'));
         // This tries to output a declaration block without a selector and throws.
-        $oDoc->render();
+        $document->render();
     }
 
     /**
@@ -629,13 +569,13 @@ body {font-size: 1.6em;}';
      */
     public function comments(): void
     {
-        $oDoc = self::parsedStructureForFile('comments');
-        $sExpected = <<<EXPECTED
+        $document = self::parsedStructureForFile('comments');
+        $expected = <<<EXPECTED
 @import url("some/url.css") screen;
 .foo, #bar {background-color: #000;}
 @media screen {#foo.bar {position: absolute;}}
 EXPECTED;
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -643,10 +583,10 @@ EXPECTED;
      */
     public function urlInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('url', Settings::create()->withMultibyteSupport(true));
-        $sExpected = 'body {background: #fff url("https://somesite.com/images/someimage.gif") repeat top center;}
+        $document = self::parsedStructureForFile('url', Settings::create()->withMultibyteSupport(true));
+        $expected = 'body {background: #fff url("https://somesite.com/images/someimage.gif") repeat top center;}
 body {background-url: url("https://somesite.com/images/someimage.gif");}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -654,10 +594,10 @@ body {background-url: url("https://somesite.com/images/someimage.gif");}';
      */
     public function hexAlphaInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('hex-alpha', Settings::create()->withMultibyteSupport(true));
-        $sExpected = 'div {background: rgba(17,34,51,.27);}
+        $document = self::parsedStructureForFile('hex-alpha', Settings::create()->withMultibyteSupport(true));
+        $expected = 'div {background: rgba(17,34,51,.27);}
 div {background: rgba(17,34,51,.27);}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -665,12 +605,12 @@ div {background: rgba(17,34,51,.27);}';
      */
     public function calcInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('calc', Settings::create()->withMultibyteSupport(true));
-        $sExpected = 'div {width: calc(100% / 4);}
+        $document = self::parsedStructureForFile('calc', Settings::create()->withMultibyteSupport(true));
+        $expected = 'div {width: calc(100% / 4);}
 div {margin-top: calc(-120% - 4px);}
-div {height: -webkit-calc(9 / 16 * 100%) !important;width: -moz-calc(( 50px - 50% ) * 2);}
+div {height: calc(9 / 16 * 100%) !important;width: calc(( 50px - 50% ) * 2);}
 div {width: calc(50% - ( ( 4% ) * .5 ));}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -678,9 +618,9 @@ div {width: calc(50% - ( ( 4% ) * .5 ));}';
      */
     public function calcNestedInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('calc-nested', Settings::create()->withMultibyteSupport(true));
-        $sExpected = '.test {font-size: calc(( 3 * 4px ) + -2px);top: calc(200px - calc(20 * 3px));}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('calc-nested', Settings::create()->withMultibyteSupport(true));
+        $expected = '.test {font-size: calc(( 3 * 4px ) + -2px);top: calc(200px - calc(20 * 3px));}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -688,13 +628,13 @@ div {width: calc(50% - ( ( 4% ) * .5 ));}';
      */
     public function invalidCalcInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('calc-invalid', Settings::create()->withMultibyteSupport(true));
-        $sExpected = 'div {}
+        $document = self::parsedStructureForFile('calc-invalid', Settings::create()->withMultibyteSupport(true));
+        $expected = 'div {}
 div {}
 div {}
 div {height: -moz-calc;}
 div {height: calc;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -703,28 +643,28 @@ div {height: calc;}';
     public function invalidCalc(): void
     {
         $parser = new Parser('div { height: calc(100px');
-        $oDoc = $parser->parse();
-        self::assertSame('div {height: calc(100px);}', $oDoc->render());
+        $document = $parser->parse();
+        self::assertSame('div {height: calc(100px);}', $document->render());
 
         $parser = new Parser('div { height: calc(100px)');
-        $oDoc = $parser->parse();
-        self::assertSame('div {height: calc(100px);}', $oDoc->render());
+        $document = $parser->parse();
+        self::assertSame('div {height: calc(100px);}', $document->render());
 
         $parser = new Parser('div { height: calc(100px);');
-        $oDoc = $parser->parse();
-        self::assertSame('div {height: calc(100px);}', $oDoc->render());
+        $document = $parser->parse();
+        self::assertSame('div {height: calc(100px);}', $document->render());
 
         $parser = new Parser('div { height: calc(100px}');
-        $oDoc = $parser->parse();
-        self::assertSame('div {}', $oDoc->render());
+        $document = $parser->parse();
+        self::assertSame('div {}', $document->render());
 
         $parser = new Parser('div { height: calc(100px;');
-        $oDoc = $parser->parse();
-        self::assertSame('div {}', $oDoc->render());
+        $document = $parser->parse();
+        self::assertSame('div {}', $document->render());
 
         $parser = new Parser('div { height: calc(100px;}');
-        $oDoc = $parser->parse();
-        self::assertSame('div {}', $oDoc->render());
+        $document = $parser->parse();
+        self::assertSame('div {}', $document->render());
     }
 
     /**
@@ -732,10 +672,10 @@ div {height: calc;}';
      */
     public function gridLineNameInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('grid-linename', Settings::create()->withMultibyteSupport(true));
-        $sExpected = "div {grid-template-columns: [linename] 100px;}\n"
+        $document = self::parsedStructureForFile('grid-linename', Settings::create()->withMultibyteSupport(true));
+        $expected = "div {grid-template-columns: [linename] 100px;}\n"
             . 'span {grid-template-columns: [linename1 linename2] 100px;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -743,9 +683,9 @@ div {height: calc;}';
      */
     public function emptyGridLineNameLenientInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('empty-grid-linename');
-        $sExpected = '.test {grid-template-columns: [] 100px;}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('empty-grid-linename');
+        $expected = '.test {grid-template-columns: [] 100px;}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -753,9 +693,12 @@ div {height: calc;}';
      */
     public function invalidGridLineNameInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('invalid-grid-linename', Settings::create()->withMultibyteSupport(true));
-        $sExpected = 'div {}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile(
+            'invalid-grid-linename',
+            Settings::create()->withMultibyteSupport(true)
+        );
+        $expected = 'div {}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -763,9 +706,9 @@ div {height: calc;}';
      */
     public function unmatchedBracesInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('unmatched_braces', Settings::create()->withMultibyteSupport(true));
-        $sExpected = 'button, input, checkbox, textarea {outline: 0;margin: 0;}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('unmatched_braces', Settings::create()->withMultibyteSupport(true));
+        $expected = 'button, input, checkbox, textarea {outline: 0;margin: 0;}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -773,20 +716,20 @@ div {height: calc;}';
      */
     public function invalidSelectorsInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('invalid-selectors', Settings::create()->withMultibyteSupport(true));
-        $sExpected = '@keyframes mymove {from {top: 0px;}}
+        $document = self::parsedStructureForFile('invalid-selectors', Settings::create()->withMultibyteSupport(true));
+        $expected = '@keyframes mymove {from {top: 0px;}}
 #test {color: white;background: green;}
 #test {display: block;background: white;color: black;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
 
-        $oDoc = self::parsedStructureForFile('invalid-selectors-2', Settings::create()->withMultibyteSupport(true));
-        $sExpected = '@media only screen and (max-width: 1215px) {.breadcrumb {padding-left: 10px;}
+        $document = self::parsedStructureForFile('invalid-selectors-2', Settings::create()->withMultibyteSupport(true));
+        $expected = '@media only screen and (max-width: 1215px) {.breadcrumb {padding-left: 10px;}
 	.super-menu > li:first-of-type {border-left-width: 0;}
 	.super-menu > li:last-of-type {border-right-width: 0;}
 	html[dir="rtl"] .super-menu > li:first-of-type {border-left-width: 1px;border-right-width: 0;}
 	html[dir="rtl"] .super-menu > li:last-of-type {border-left-width: 0;}}
 body {background-color: red;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -794,19 +737,19 @@ body {background-color: red;}';
      */
     public function selectorEscapesInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('selector-escapes', Settings::create()->withMultibyteSupport(true));
-        $sExpected = '#\\# {color: red;}
+        $document = self::parsedStructureForFile('selector-escapes', Settings::create()->withMultibyteSupport(true));
+        $expected = '#\\# {color: red;}
 .col-sm-1\\/5 {width: 20%;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
 
-        $oDoc = self::parsedStructureForFile('invalid-selectors-2', Settings::create()->withMultibyteSupport(true));
-        $sExpected = '@media only screen and (max-width: 1215px) {.breadcrumb {padding-left: 10px;}
+        $document = self::parsedStructureForFile('invalid-selectors-2', Settings::create()->withMultibyteSupport(true));
+        $expected = '@media only screen and (max-width: 1215px) {.breadcrumb {padding-left: 10px;}
 	.super-menu > li:first-of-type {border-left-width: 0;}
 	.super-menu > li:last-of-type {border-right-width: 0;}
 	html[dir="rtl"] .super-menu > li:first-of-type {border-left-width: 1px;border-right-width: 0;}
 	html[dir="rtl"] .super-menu > li:last-of-type {border-left-width: 0;}}
 body {background-color: red;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -814,10 +757,10 @@ body {background-color: red;}';
      */
     public function identifierEscapesInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('identifier-escapes', Settings::create()->withMultibyteSupport(true));
-        $sExpected = 'div {font: 14px Font Awesome\\ 5 Pro;font: 14px Font Awesome\\} 5 Pro;'
+        $document = self::parsedStructureForFile('identifier-escapes', Settings::create()->withMultibyteSupport(true));
+        $expected = 'div {font: 14px Font Awesome\\ 5 Pro;font: 14px Font Awesome\\} 5 Pro;'
             . 'font: 14px Font Awesome\\; 5 Pro;f\\;ont: 14px Font Awesome\\; 5 Pro;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -825,13 +768,13 @@ body {background-color: red;}';
      */
     public function selectorIgnoresInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('selector-ignores', Settings::create()->withMultibyteSupport(true));
-        $sExpected = '.some[selectors-may=\'contain-a-{\'] {}'
+        $document = self::parsedStructureForFile('selector-ignores', Settings::create()->withMultibyteSupport(true));
+        $expected = '.some[selectors-may=\'contain-a-{\'] {}'
             . "\n"
             . '.this-selector  .valid {width: 100px;}'
             . "\n"
             . '@media only screen and (min-width: 200px) {.test {prop: val;}}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -839,16 +782,16 @@ body {background-color: red;}';
      */
     public function keyframeSelectors(): void
     {
-        $oDoc = self::parsedStructureForFile(
+        $document = self::parsedStructureForFile(
             'keyframe-selector-validation',
             Settings::create()->withMultibyteSupport(true)
         );
-        $sExpected = '@-webkit-keyframes zoom {0% {-webkit-transform: scale(1,1);}'
+        $expected = '@-webkit-keyframes zoom {0% {-webkit-transform: scale(1,1);}'
             . "\n\t"
             . '50% {-webkit-transform: scale(1.2,1.2);}'
             . "\n\t"
             . '100% {-webkit-transform: scale(1,1);}}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -876,11 +819,11 @@ body {background-color: red;}';
      */
     public function urlInFileMbOff(): void
     {
-        $oDoc = self::parsedStructureForFile('url', Settings::create()->withMultibyteSupport(false));
-        $sExpected = 'body {background: #fff url("https://somesite.com/images/someimage.gif") repeat top center;}'
+        $document = self::parsedStructureForFile('url', Settings::create()->withMultibyteSupport(false));
+        $expected = 'body {background: #fff url("https://somesite.com/images/someimage.gif") repeat top center;}'
             . "\n"
             . 'body {background-url: url("https://somesite.com/images/someimage.gif");}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -888,9 +831,9 @@ body {background-color: red;}';
      */
     public function emptyFile(): void
     {
-        $oDoc = self::parsedStructureForFile('-empty', Settings::create()->withMultibyteSupport(true));
-        $sExpected = '';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('-empty', Settings::create()->withMultibyteSupport(true));
+        $expected = '';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -898,9 +841,9 @@ body {background-color: red;}';
      */
     public function emptyFileMbOff(): void
     {
-        $oDoc = self::parsedStructureForFile('-empty', Settings::create()->withMultibyteSupport(false));
-        $sExpected = '';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('-empty', Settings::create()->withMultibyteSupport(false));
+        $expected = '';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -908,9 +851,9 @@ body {background-color: red;}';
      */
     public function charsetLenient1(): void
     {
-        $oDoc = self::parsedStructureForFile('-charset-after-rule', Settings::create()->withLenientParsing(true));
-        $sExpected = '#id {prop: var(--val);}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('-charset-after-rule', Settings::create()->withLenientParsing(true));
+        $expected = '#id {prop: var(--val);}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -918,9 +861,9 @@ body {background-color: red;}';
      */
     public function charsetLenient2(): void
     {
-        $oDoc = self::parsedStructureForFile('-charset-in-block', Settings::create()->withLenientParsing(true));
-        $sExpected = '@media print {}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('-charset-in-block', Settings::create()->withLenientParsing(true));
+        $expected = '@media print {}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -928,9 +871,9 @@ body {background-color: red;}';
      */
     public function trailingWhitespace(): void
     {
-        $oDoc = self::parsedStructureForFile('trailing-whitespace', Settings::create()->withLenientParsing(false));
-        $sExpected = 'div {width: 200px;}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('trailing-whitespace', Settings::create()->withLenientParsing(false));
+        $expected = 'div {width: 200px;}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -966,8 +909,6 @@ body {background-color: red;}';
     /**
      * Ensure that a missing property value raises an exception.
      *
-     * @covers \Sabberworm\CSS\Value\Value::parseValue()
-     *
      * @test
      */
     public function missingPropertyValueStrict(): void
@@ -980,16 +921,14 @@ body {background-color: red;}';
     /**
      * Ensure that a missing property value is ignored when in lenient parsing mode.
      *
-     * @covers \Sabberworm\CSS\Value\Value::parseValue()
-     *
      * @test
      */
     public function missingPropertyValueLenient(): void
     {
         $parsed = self::parsedStructureForFile('missing-property-value', Settings::create()->withLenientParsing(true));
-        $rulesets = $parsed->getAllRuleSets();
-        self::assertCount(1, $rulesets);
-        $block = $rulesets[0];
+        $declarationBlocks = $parsed->getAllDeclarationBlocks();
+        self::assertCount(1, $declarationBlocks);
+        $block = $declarationBlocks[0];
         self::assertInstanceOf(DeclarationBlock::class, $block);
         self::assertEquals([new Selector('div')], $block->getSelectors());
         $rules = $block->getRules();
@@ -1002,14 +941,14 @@ body {background-color: red;}';
     /**
      * Parses structure for file.
      *
-     * @param string $sFileName
-     * @param Settings|null $oSettings
+     * @param string $filename
+     * @param Settings|null $settings
      */
-    public static function parsedStructureForFile($sFileName, $oSettings = null): Document
+    public static function parsedStructureForFile($filename, $settings = null): Document
     {
-        $sFile = __DIR__ . "/fixtures/$sFileName.css";
-        $oParser = new Parser(\file_get_contents($sFile), $oSettings);
-        return $oParser->parse();
+        $filename = __DIR__ . "/fixtures/$filename.css";
+        $parser = new Parser(file_get_contents($filename), $settings);
+        return $parser->parse();
     }
 
     /**
@@ -1019,9 +958,9 @@ body {background-color: red;}';
      */
     public function lineNumbersParsing(): void
     {
-        $oDoc = self::parsedStructureForFile('line-numbers');
+        $document = self::parsedStructureForFile('line-numbers');
         // array key is the expected line number
-        $aExpected = [
+        $expected = [
             1 => [Charset::class],
             3 => [CSSNamespace::class],
             5 => [AtRuleSet::class],
@@ -1032,42 +971,45 @@ body {background-color: red;}';
             25 => [DeclarationBlock::class],
         ];
 
-        $aActual = [];
-        foreach ($oDoc->getContents() as $oContent) {
-            $aActual[$oContent->getLineNo()] = [\get_class($oContent)];
-            if ($oContent instanceof KeyFrame) {
-                foreach ($oContent->getContents() as $block) {
-                    $aActual[$oContent->getLineNo()][] = $block->getLineNo();
+        $actual = [];
+        foreach ($document->getContents() as $contentItem) {
+            self::assertInstanceOf(Positionable::class, $contentItem);
+            $actual[$contentItem->getLineNumber()] = [\get_class($contentItem)];
+            if ($contentItem instanceof KeyFrame) {
+                foreach ($contentItem->getContents() as $block) {
+                    self::assertInstanceOf(Positionable::class, $block);
+                    $actual[$contentItem->getLineNumber()][] = $block->getLineNumber();
                 }
             }
         }
 
-        $aUrlExpected = [7, 26]; // expected line numbers
-        $aUrlActual = [];
-        foreach ($oDoc->getAllValues() as $oValue) {
-            if ($oValue instanceof URL) {
-                $aUrlActual[] = $oValue->getLineNo();
+        $expectedLineNumbers = [7, 26];
+        $actualLineNumbers = [];
+        foreach ($document->getAllValues() as $value) {
+            if ($value instanceof URL) {
+                $actualLineNumbers[] = $value->getLineNumber();
             }
         }
 
         // Checking for the multiline color rule lines 27-31
-        $aExpectedColorLines = [28, 29, 30];
-        $aDeclBlocks = $oDoc->getAllDeclarationBlocks();
+        $expectedColorLineNumbers = [28, 29, 30];
+        $declarationBlocks = $document->getAllDeclarationBlocks();
         // Choose the 2nd one
-        $oDeclBlock = $aDeclBlocks[1];
-        $aRules = $oDeclBlock->getRules();
+        $secondDeclarationBlock = $declarationBlocks[1];
+        $rules = $secondDeclarationBlock->getRules();
         // Choose the 2nd one
-        $oColor = $aRules[1]->getValue();
-        self::assertSame(27, $aRules[1]->getLineNo());
+        $valueOfSecondRule = $rules[1]->getValue();
+        self::assertInstanceOf(Color::class, $valueOfSecondRule);
+        self::assertSame(27, $rules[1]->getLineNumber());
 
-        $aActualColorLines = [];
-        foreach ($oColor->getColor() as $oSize) {
-            $aActualColorLines[] = $oSize->getLineNo();
+        $actualColorLineNumbers = [];
+        foreach ($valueOfSecondRule->getColor() as $size) {
+            $actualColorLineNumbers[] = $size->getLineNumber();
         }
 
-        self::assertSame($aExpectedColorLines, $aActualColorLines);
-        self::assertSame($aUrlExpected, $aUrlActual);
-        self::assertSame($aExpected, $aActual);
+        self::assertSame($expectedColorLineNumbers, $actualColorLineNumbers);
+        self::assertSame($expectedLineNumbers, $actualLineNumbers);
+        self::assertSame($expected, $actual);
     }
 
     /**
@@ -1077,35 +1019,13 @@ body {background-color: red;}';
     {
         $this->expectException(UnexpectedTokenException::class);
 
-        $oParser = new Parser("\ntest: 1;", Settings::create()->beStrict());
+        $parser = new Parser("\ntest: 1;", Settings::create()->beStrict());
         try {
-            $oParser->parse();
+            $parser->parse();
         } catch (UnexpectedTokenException $e) {
-            self::assertSame(2, $e->getLineNo());
+            self::assertSame(2, $e->getLineNumber());
             throw $e;
         }
-    }
-
-    /**
-     * @test
-     */
-    public function ieHacksStrictParsing(): void
-    {
-        $this->expectException(UnexpectedTokenException::class);
-
-        // We can't strictly parse IE hacks.
-        self::parsedStructureForFile('ie-hacks', Settings::create()->beStrict());
-    }
-
-    /**
-     * @test
-     */
-    public function ieHacksParsing(): void
-    {
-        $oDoc = self::parsedStructureForFile('ie-hacks', Settings::create()->withLenientParsing(true));
-        $sExpected = 'p {padding-right: .75rem \\9;background-image: none \\9;color: red \\9\\0;'
-            . 'background-color: red \\9\\0;background-color: red \\9\\0 !important;content: "red 	\\0";content: "red઼";}';
-        self::assertSame($sExpected, $oDoc->render());
     }
 
     /**
@@ -1115,17 +1035,19 @@ body {background-color: red;}';
      */
     public function commentExtracting(): void
     {
-        $oDoc = self::parsedStructureForFile('comments');
-        $aNodes = $oDoc->getContents();
+        $document = self::parsedStructureForFile('comments');
+        $nodes = $document->getContents();
 
         // Import property.
-        $importComments = $aNodes[0]->getComments();
+        self::assertInstanceOf(Commentable::class, $nodes[0]);
+        $importComments = $nodes[0]->getComments();
         self::assertCount(2, $importComments);
         self::assertSame("*\n * Comments\n ", $importComments[0]->getComment());
         self::assertSame(' Hell ', $importComments[1]->getComment());
 
         // Declaration block.
-        $fooBarBlock = $aNodes[1];
+        $fooBarBlock = $nodes[1];
+        self::assertInstanceOf(Commentable::class, $fooBarBlock);
         $fooBarBlockComments = $fooBarBlock->getComments();
         // TODO Support comments in selectors.
         // $this->assertCount(2, $fooBarBlockComments);
@@ -1133,6 +1055,7 @@ body {background-color: red;}';
         // $this->assertSame("* Number 5 *", $fooBarBlockComments[1]->getComment());
 
         // Declaration rules.
+        self::assertInstanceOf(DeclarationBlock::class, $fooBarBlock);
         $fooBarRules = $fooBarBlock->getRules();
         $fooBarRule = $fooBarRules[0];
         $fooBarRuleComments = $fooBarRule->getComments();
@@ -1140,16 +1063,20 @@ body {background-color: red;}';
         self::assertSame(' Number 6 ', $fooBarRuleComments[0]->getComment());
 
         // Media property.
-        $mediaComments = $aNodes[2]->getComments();
+        self::assertInstanceOf(Commentable::class, $nodes[2]);
+        $mediaComments = $nodes[2]->getComments();
         self::assertCount(0, $mediaComments);
 
         // Media children.
-        $mediaRules = $aNodes[2]->getContents();
+        self::assertInstanceOf(CSSList::class, $nodes[2]);
+        $mediaRules = $nodes[2]->getContents();
+        self::assertInstanceOf(Commentable::class, $mediaRules[0]);
         $fooBarComments = $mediaRules[0]->getComments();
         self::assertCount(1, $fooBarComments);
         self::assertSame('* Number 10 *', $fooBarComments[0]->getComment());
 
         // Media -> declaration -> rule.
+        self::assertInstanceOf(DeclarationBlock::class, $mediaRules[0]);
         $fooBarRules = $mediaRules[0]->getRules();
         $fooBarChildComments = $fooBarRules[0]->getComments();
         self::assertCount(1, $fooBarChildComments);
@@ -1159,15 +1086,74 @@ body {background-color: red;}';
     /**
      * @test
      */
-    public function flatCommentExtracting(): void
+    public function flatCommentExtractingOneComment(): void
     {
         $parser = new Parser('div {/*Find Me!*/left:10px; text-align:left;}');
-        $doc = $parser->parse();
-        $contents = $doc->getContents();
+        $document = $parser->parse();
+
+        $contents = $document->getContents();
+        self::assertInstanceOf(DeclarationBlock::class, $contents[0]);
         $divRules = $contents[0]->getRules();
         $comments = $divRules[0]->getComments();
+
         self::assertCount(1, $comments);
         self::assertSame('Find Me!', $comments[0]->getComment());
+    }
+
+    /**
+     * @test
+     */
+    public function flatCommentExtractingTwoConjoinedCommentsForOneRule(): void
+    {
+        $parser = new Parser('div {/*Find Me!*//*Find Me Too!*/left:10px; text-align:left;}');
+        $document = $parser->parse();
+
+        $contents = $document->getContents();
+        self::assertInstanceOf(DeclarationBlock::class, $contents[0]);
+        $divRules = $contents[0]->getRules();
+        $comments = $divRules[0]->getComments();
+
+        self::assertCount(2, $comments);
+        self::assertSame('Find Me!', $comments[0]->getComment());
+        self::assertSame('Find Me Too!', $comments[1]->getComment());
+    }
+
+    /**
+     * @test
+     */
+    public function flatCommentExtractingTwoSpaceSeparatedCommentsForOneRule(): void
+    {
+        $parser = new Parser('div { /*Find Me!*/ /*Find Me Too!*/ left:10px; text-align:left;}');
+        $document = $parser->parse();
+
+        $contents = $document->getContents();
+        self::assertInstanceOf(DeclarationBlock::class, $contents[0]);
+        $divRules = $contents[0]->getRules();
+        $comments = $divRules[0]->getComments();
+
+        self::assertCount(2, $comments);
+        self::assertSame('Find Me!', $comments[0]->getComment());
+        self::assertSame('Find Me Too!', $comments[1]->getComment());
+    }
+
+    /**
+     * @test
+     */
+    public function flatCommentExtractingCommentsForTwoRules(): void
+    {
+        $parser = new Parser('div {/*Find Me!*/left:10px; /*Find Me Too!*/text-align:left;}');
+        $document = $parser->parse();
+
+        $contents = $document->getContents();
+        self::assertInstanceOf(DeclarationBlock::class, $contents[0]);
+        $divRules = $contents[0]->getRules();
+        $rule1Comments = $divRules[0]->getComments();
+        $rule2Comments = $divRules[1]->getComments();
+
+        self::assertCount(1, $rule1Comments);
+        self::assertCount(1, $rule2Comments);
+        self::assertSame('Find Me!', $rule1Comments[0]->getComment());
+        self::assertSame('Find Me Too!', $rule2Comments[0]->getComment());
     }
 
     /**
@@ -1176,8 +1162,9 @@ body {background-color: red;}';
     public function topLevelCommentExtracting(): void
     {
         $parser = new Parser('/*Find Me!*/div {left:10px; text-align:left;}');
-        $doc = $parser->parse();
-        $contents = $doc->getContents();
+        $document = $parser->parse();
+        $contents = $document->getContents();
+        self::assertInstanceOf(Commentable::class, $contents[0]);
         $comments = $contents[0]->getComments();
         self::assertCount(1, $comments);
         self::assertSame('Find Me!', $comments[0]->getComment());
@@ -1190,7 +1177,7 @@ body {background-color: red;}';
     {
         $this->expectException(UnexpectedTokenException::class);
 
-        $oDoc = self::parsedStructureForFile('ms-filter', Settings::create()->beStrict());
+        $document = self::parsedStructureForFile('ms-filter', Settings::create()->beStrict());
     }
 
     /**
@@ -1198,10 +1185,10 @@ body {background-color: red;}';
      */
     public function microsoftFilterParsing(): void
     {
-        $oDoc = self::parsedStructureForFile('ms-filter');
-        $sExpected = '.test {filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#80000000",'
+        $document = self::parsedStructureForFile('ms-filter');
+        $expected = '.test {filter: progid:DXImageTransform.Microsoft.gradient(startColorstr="#80000000",'
             . 'endColorstr="#00000000",GradientType=1);}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -1209,9 +1196,9 @@ body {background-color: red;}';
      */
     public function largeSizeValuesInFile(): void
     {
-        $oDoc = self::parsedStructureForFile('large-z-index', Settings::create()->withMultibyteSupport(false));
-        $sExpected = '.overlay {z-index: 10000000000000000000000;}';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('large-z-index', Settings::create()->withMultibyteSupport(false));
+        $expected = '.overlay {z-index: 10000000000000000000000;}';
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -1219,14 +1206,14 @@ body {background-color: red;}';
      */
     public function scientificNotationSizeValuesInFile(): void
     {
-        $oDoc = $this->parsedStructureForFile(
+        $document = self::parsedStructureForFile(
             'scientific-notation-numbers',
             Settings::create()->withMultibyteSupport(false)
         );
-        $sExpected = ''
+        $expected = ''
             . 'body {background-color: rgba(62,174,151,3041820656523200167936);'
             . 'z-index: .030418206565232;font-size: 1em;top: 192.3478px;}';
-        self::assertSame($sExpected, $oDoc->render());
+        self::assertSame($expected, $document->render());
     }
 
     /**
@@ -1234,19 +1221,20 @@ body {background-color: red;}';
      */
     public function lonelyImport(): void
     {
-        $oDoc = self::parsedStructureForFile('lonely-import');
-        $sExpected = '@import url("example.css") only screen and (max-width: 600px);';
-        self::assertSame($sExpected, $oDoc->render());
+        $document = self::parsedStructureForFile('lonely-import');
+        $expected = '@import url("example.css") only screen and (max-width: 600px);';
+        self::assertSame($expected, $document->render());
     }
 
     public function escapedSpecialCaseTokens(): void
     {
-        $oDoc = $this->parsedStructureForFile('escaped-tokens');
-        $contents = $oDoc->getContents();
+        $document = self::parsedStructureForFile('escaped-tokens');
+        $contents = $document->getContents();
+        self::assertInstanceOf(RuleSet::class, $contents[0]);
         $rules = $contents[0]->getRules();
         $urlRule = $rules[0];
         $calcRule = $rules[1];
-        self::assertTrue(\is_a($urlRule->getValue(), '\\Sabberworm\\CSS\\Value\\URL'));
-        self::assertTrue(\is_a($calcRule->getValue(), '\\Sabberworm\\CSS\\Value\\CalcFunction'));
+        self::assertInstanceOf(URL::class, $urlRule->getValue());
+        self::assertInstanceOf(CalcFunction::class, $calcRule->getValue());
     }
 }

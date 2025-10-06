@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sabberworm\CSS\Tests;
 
 use PHPUnit\Framework\TestCase;
@@ -9,7 +11,7 @@ use Sabberworm\CSS\Parser;
 use Sabberworm\CSS\Parsing\OutputException;
 
 /**
- * @covers \Sabberworm\CSS\OutputFormat
+ * @coversNothing
  */
 final class OutputFormatTest extends TestCase
 {
@@ -36,17 +38,17 @@ EOT;
     /**
      * @var Parser
      */
-    private $oParser;
+    private $parser;
 
     /**
      * @var Document
      */
-    private $oDocument;
+    private $document;
 
     protected function setUp(): void
     {
-        $this->oParser = new Parser(self::TEST_CSS);
-        $this->oDocument = $this->oParser->parse();
+        $this->parser = new Parser(self::TEST_CSS);
+        $this->document = $this->parser->parse();
     }
 
     /**
@@ -57,7 +59,7 @@ EOT;
         self::assertSame(
             '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
 @media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
-            $this->oDocument->render()
+            $this->document->render()
         );
     }
 
@@ -67,9 +69,9 @@ EOT;
     public function compact(): void
     {
         self::assertSame(
-            '.main,.test{font:italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background:white;}'
-            . '@media screen{.main{background-size:100% 100%;font-size:1.3em;background-color:#fff;}}',
-            $this->oDocument->render(OutputFormat::createCompact())
+            '.main,.test{font:italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background:white}'
+            . '@media screen{.main{background-size:100% 100%;font-size:1.3em;background-color:#fff}}',
+            $this->document->render(OutputFormat::createCompact())
         );
     }
 
@@ -78,7 +80,7 @@ EOT;
      */
     public function pretty(): void
     {
-        self::assertSame(self::TEST_CSS, $this->oDocument->render(OutputFormat::createPretty()));
+        self::assertSame(self::TEST_CSS, $this->document->render(OutputFormat::createPretty()));
     }
 
     /**
@@ -90,7 +92,7 @@ EOT;
             '.main, .test {font: italic   normal   bold   16px/  1.2   '
             . '"Helvetica",  Verdana,  sans-serif;background: white;}'
             . "\n@media screen {.main {background-size: 100%   100%;font-size: 1.3em;background-color: #fff;}}",
-            $this->oDocument->render(OutputFormat::create()->setSpaceAfterListArgumentSeparator('  '))
+            $this->document->render(OutputFormat::create()->setSpaceAfterListArgumentSeparator('  '))
         );
     }
 
@@ -102,12 +104,15 @@ EOT;
         self::assertSame(
             '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",	Verdana,	sans-serif;background: white;}'
             . "\n@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}",
-            $this->oDocument->render(OutputFormat::create()->setSpaceAfterListArgumentSeparator([
-                'default' => ' ',
-                ',' => "\t",
-                '/' => '',
-                ' ' => '',
-            ]))
+            $this->document->render(
+                OutputFormat::create()
+                    ->setSpaceAfterListArgumentSeparator(' ')
+                    ->setSpaceAfterListArgumentSeparators([
+                        ',' => "\t",
+                        '/' => '',
+                        ' ' => '',
+                    ])
+            )
         );
     }
 
@@ -120,7 +125,7 @@ EOT;
             '.main,
 .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
 @media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
-            $this->oDocument->render(OutputFormat::create()->setSpaceAfterSelectorSeparator("\n"))
+            $this->document->render(OutputFormat::create()->setSpaceAfterSelectorSeparator("\n"))
         );
     }
 
@@ -132,7 +137,7 @@ EOT;
         self::assertSame(
             '.main, .test {font: italic normal bold 16px/1.2 \'Helvetica\',Verdana,sans-serif;background: white;}
 @media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
-            $this->oDocument->render(OutputFormat::create()->setStringQuotingType("'"))
+            $this->document->render(OutputFormat::create()->setStringQuotingType("'"))
         );
     }
 
@@ -144,7 +149,7 @@ EOT;
         self::assertSame(
             '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
 @media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: rgb(255,255,255);}}',
-            $this->oDocument->render(OutputFormat::create()->setRGBHashNotation(false))
+            $this->document->render(OutputFormat::create()->setRGBHashNotation(false))
         );
     }
 
@@ -156,7 +161,7 @@ EOT;
         self::assertSame(
             '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white}
 @media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff}}',
-            $this->oDocument->render(OutputFormat::create()->setSemicolonAfterLastRule(false))
+            $this->document->render(OutputFormat::create()->setSemicolonAfterLastRule(false))
         );
     }
 
@@ -168,7 +173,7 @@ EOT;
         self::assertSame(
             '.main, .test {font:	italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background:	white;}
 @media screen {.main {background-size:	100% 100%;font-size:	1.3em;background-color:	#fff;}}',
-            $this->oDocument->render(OutputFormat::create()->setSpaceAfterRuleName("\t"))
+            $this->document->render(OutputFormat::create()->setSpaceAfterRuleName("\t"))
         );
     }
 
@@ -177,6 +182,11 @@ EOT;
      */
     public function spaceRules(): void
     {
+        $outputFormat = OutputFormat::create()
+            ->setSpaceBeforeRules("\n")
+            ->setSpaceBetweenRules("\n")
+            ->setSpaceAfterRules("\n");
+
         self::assertSame('.main, .test {
 	font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;
 	background: white;
@@ -185,7 +195,7 @@ EOT;
 		background-size: 100% 100%;
 		font-size: 1.3em;
 		background-color: #fff;
-	}}', $this->oDocument->render(OutputFormat::create()->set('Space*Rules', "\n")));
+	}}', $this->document->render($outputFormat));
     }
 
     /**
@@ -193,12 +203,17 @@ EOT;
      */
     public function spaceBlocks(): void
     {
+        $outputFormat = OutputFormat::create()
+            ->setSpaceBeforeBlocks("\n")
+            ->setSpaceBetweenBlocks("\n")
+            ->setSpaceAfterBlocks("\n");
+
         self::assertSame('
 .main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
 @media screen {
 	.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}
 }
-', $this->oDocument->render(OutputFormat::create()->set('Space*Blocks', "\n")));
+', $this->document->render($outputFormat));
     }
 
     /**
@@ -206,6 +221,14 @@ EOT;
      */
     public function spaceBoth(): void
     {
+        $outputFormat = OutputFormat::create()
+            ->setSpaceBeforeRules("\n")
+            ->setSpaceBetweenRules("\n")
+            ->setSpaceAfterRules("\n")
+            ->setSpaceBeforeBlocks("\n")
+            ->setSpaceBetweenBlocks("\n")
+            ->setSpaceAfterBlocks("\n");
+
         self::assertSame('
 .main, .test {
 	font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;
@@ -218,7 +241,7 @@ EOT;
 		background-color: #fff;
 	}
 }
-', $this->oDocument->render(OutputFormat::create()->set('Space*Rules', "\n")->set('Space*Blocks', "\n")));
+', $this->document->render($outputFormat));
     }
 
     /**
@@ -226,10 +249,13 @@ EOT;
      */
     public function spaceBetweenBlocks(): void
     {
+        $outputFormat = OutputFormat::create()
+            ->setSpaceBetweenBlocks('');
+
         self::assertSame(
             '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}'
             . '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
-            $this->oDocument->render(OutputFormat::create()->setSpaceBetweenBlocks(''))
+            $this->document->render($outputFormat)
         );
     }
 
@@ -238,6 +264,15 @@ EOT;
      */
     public function indentation(): void
     {
+        $outputFormat = OutputFormat::create()
+            ->setSpaceBeforeRules("\n")
+            ->setSpaceBetweenRules("\n")
+            ->setSpaceAfterRules("\n")
+            ->setSpaceBeforeBlocks("\n")
+            ->setSpaceBetweenBlocks("\n")
+            ->setSpaceAfterBlocks("\n")
+            ->setIndentation('');
+
         self::assertSame('
 .main, .test {
 font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;
@@ -250,10 +285,7 @@ font-size: 1.3em;
 background-color: #fff;
 }
 }
-', $this->oDocument->render(OutputFormat::create()
-            ->set('Space*Rules', "\n")
-            ->set('Space*Blocks', "\n")
-            ->setIndentation('')));
+', $this->document->render($outputFormat));
     }
 
     /**
@@ -261,10 +293,13 @@ background-color: #fff;
      */
     public function spaceBeforeBraces(): void
     {
+        $outputFormat = OutputFormat::create()
+            ->setSpaceBeforeOpeningBrace('');
+
         self::assertSame(
             '.main, .test{font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
 @media screen{.main{background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
-            $this->oDocument->render(OutputFormat::create()->setSpaceBeforeOpeningBrace(''))
+            $this->document->render($outputFormat)
         );
     }
 
@@ -275,16 +310,18 @@ background-color: #fff;
     {
         $this->expectException(OutputException::class);
 
-        $aBlocks = $this->oDocument->getAllDeclarationBlocks();
-        $oFirstBlock = $aBlocks[0];
-        $oFirstBlock->removeSelector('.main');
+        $outputFormat = OutputFormat::create()->setIgnoreExceptions(false);
+
+        $declarationBlocks = $this->document->getAllDeclarationBlocks();
+        $firstDeclarationBlock = $declarationBlocks[0];
+        $firstDeclarationBlock->removeSelector('.main');
         self::assertSame(
             '.test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
 @media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
-            $this->oDocument->render(OutputFormat::create()->setIgnoreExceptions(false))
+            $this->document->render($outputFormat)
         );
-        $oFirstBlock->removeSelector('.test');
-        $this->oDocument->render(OutputFormat::create()->setIgnoreExceptions(false));
+        $firstDeclarationBlock->removeSelector('.test');
+        $this->document->render($outputFormat);
     }
 
     /**
@@ -292,13 +329,15 @@ background-color: #fff;
      */
     public function ignoreExceptionsOn(): void
     {
-        $aBlocks = $this->oDocument->getAllDeclarationBlocks();
-        $oFirstBlock = $aBlocks[0];
-        $oFirstBlock->removeSelector('.main');
-        $oFirstBlock->removeSelector('.test');
+        $outputFormat = OutputFormat::create()->setIgnoreExceptions(true);
+
+        $declarationBlocks = $this->document->getAllDeclarationBlocks();
+        $firstDeclarationBlock = $declarationBlocks[0];
+        $firstDeclarationBlock->removeSelector('.main');
+        $firstDeclarationBlock->removeSelector('.test');
         self::assertSame(
             '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
-            $this->oDocument->render(OutputFormat::create()->setIgnoreExceptions(true))
+            $this->document->render($outputFormat)
         );
     }
 }

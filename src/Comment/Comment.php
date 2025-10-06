@@ -1,63 +1,49 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sabberworm\CSS\Comment;
 
 use Sabberworm\CSS\OutputFormat;
 use Sabberworm\CSS\Renderable;
+use Sabberworm\CSS\Position\Position;
+use Sabberworm\CSS\Position\Positionable;
 
-class Comment implements Renderable
+class Comment implements Positionable, Renderable
 {
-    /**
-     * @var int
-     */
-    protected $iLineNo;
+    use Position;
 
     /**
      * @var string
+     *
+     * @internal since 8.8.0
      */
-    protected $sComment;
+    protected $commentText;
 
     /**
-     * @param string $sComment
-     * @param int $iLineNo
+     * @param int<1, max>|null $lineNumber
      */
-    public function __construct($sComment = '', $iLineNo = 0)
+    public function __construct(string $commentText = '', ?int $lineNumber = null)
     {
-        $this->sComment = $sComment;
-        $this->iLineNo = $iLineNo;
+        $this->commentText = $commentText;
+        $this->setPosition($lineNumber);
     }
 
-    /**
-     * @return string
-     */
-    public function getComment()
+    public function getComment(): string
     {
-        return $this->sComment;
+        return $this->commentText;
     }
 
-    /**
-     * @return int
-     */
-    public function getLineNo()
+    public function setComment(string $commentText): void
     {
-        return $this->iLineNo;
+        $this->commentText = $commentText;
     }
 
     /**
-     * @param string $sComment
+     * @return non-empty-string
      */
-    public function setComment($sComment): void
+    public function render(OutputFormat $outputFormat): string
     {
-        $this->sComment = $sComment;
-    }
-
-    public function __toString(): string
-    {
-        return $this->render(new OutputFormat());
-    }
-
-    public function render(OutputFormat $oOutputFormat): string
-    {
-        return '/*' . $this->sComment . '*/';
+        return '/*' . $this->commentText . '*/';
     }
 }

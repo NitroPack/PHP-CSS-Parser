@@ -1,6 +1,8 @@
 <?php
 
-namespace Sabberworm\CSS\Tests\Value;
+declare(strict_types=1);
+
+namespace Sabberworm\CSS\Tests\Unit\Value;
 
 use PHPUnit\Framework\TestCase;
 use Sabberworm\CSS\Value\CalcRuleValueList;
@@ -8,6 +10,9 @@ use Sabberworm\CSS\Value\RuleValueList;
 
 /**
  * @covers \Sabberworm\CSS\Value\CalcRuleValueList
+ * @covers \Sabberworm\CSS\Value\RuleValueList
+ * @covers \Sabberworm\CSS\Value\Value
+ * @covers \Sabberworm\CSS\Value\ValueList
  */
 final class CalcRuleValueListTest extends TestCase
 {
@@ -24,23 +29,22 @@ final class CalcRuleValueListTest extends TestCase
     /**
      * @test
      */
-    public function getLineNumberByDefaultReturnsZero(): void
+    public function getLineNumberByDefaultReturnsNull(): void
     {
         $subject = new CalcRuleValueList();
 
-        self::assertSame(0, $subject->getLineNo());
+        self::assertNull($subject->getLineNumber());
     }
 
     /**
      * @test
      */
-    public function getLineNoReturnsLineNumberProvidedToConstructor(): void
+    public function getLineNumberReturnsLineNumberProvidedToConstructor(): void
     {
         $lineNumber = 42;
-
         $subject = new CalcRuleValueList($lineNumber);
 
-        self::assertSame($lineNumber, $subject->getLineNo());
+        self::assertSame($lineNumber, $subject->getLineNumber());
     }
 
     /**

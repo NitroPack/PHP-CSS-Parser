@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sabberworm\CSS\Value;
 
 use Sabberworm\CSS\OutputFormat;
@@ -13,84 +15,82 @@ use Sabberworm\CSS\OutputFormat;
 abstract class ValueList extends Value
 {
     /**
-     * @var array<int, Value|string>
+     * @var array<Value|string>
+     *
+     * @internal since 8.8.0
      */
-    protected $aComponents;
+    protected $components;
 
     /**
-     * @var string
+     * @var non-empty-string
+     *
+     * @internal since 8.8.0
      */
-    protected $sSeparator;
+    protected $separator;
 
     /**
-     * @param array<int, Value|string>|Value|string $aComponents
-     * @param string $sSeparator
-     * @param int $iLineNo
+     * @param array<Value|string>|Value|string $components
+     * @param non-empty-string $separator
+     * @param int<1, max>|null $lineNumber
      */
-    public function __construct($aComponents = [], $sSeparator = ',', $iLineNo = 0)
+    public function __construct($components = [], $separator = ',', ?int $lineNumber = null)
     {
-        parent::__construct($iLineNo);
-        if (!\is_array($aComponents)) {
-            $aComponents = [$aComponents];
+        parent::__construct($lineNumber);
+        if (!\is_array($components)) {
+            $components = [$components];
         }
-        $this->aComponents = $aComponents;
-        $this->sSeparator = $sSeparator;
+        $this->components = $components;
+        $this->separator = $separator;
     }
 
     /**
-     * @param Value|string $mComponent
+     * @param Value|string $component
      */
-    public function addListComponent($mComponent): void
+    public function addListComponent($component): void
     {
-        $this->aComponents[] = $mComponent;
+        $this->components[] = $component;
     }
 
     /**
-     * @return array<int, Value|string>
+     * @return array<Value|string>
      */
-    public function getListComponents()
+    public function getListComponents(): array
     {
-        return $this->aComponents;
+        return $this->components;
     }
 
     /**
-     * @param array<int, Value|string> $aComponents
+     * @param array<Value|string> $components
      */
-    public function setListComponents(array $aComponents): void
+    public function setListComponents(array $components): void
     {
-        $this->aComponents = $aComponents;
+        $this->components = $components;
     }
 
     /**
-     * @return string
+     * @return non-empty-string
      */
-    public function getListSeparator()
+    public function getListSeparator(): string
     {
-        return $this->sSeparator;
+        return $this->separator;
     }
 
     /**
-     * @param string $sSeparator
+     * @param non-empty-string $separator
      */
-    public function setListSeparator($sSeparator): void
+    public function setListSeparator(string $separator): void
     {
-        $this->sSeparator = $sSeparator;
+        $this->separator = $separator;
     }
 
-    public function __toString(): string
+    public function render(OutputFormat $outputFormat): string
     {
-        return $this->render(new OutputFormat());
-    }
+        $formatter = $outputFormat->getFormatter();
 
-    /**
-     * @return string
-     */
-    public function render(OutputFormat $oOutputFormat)
-    {
-        return $oOutputFormat->implode(
-            $oOutputFormat->spaceBeforeListArgumentSeparator($this->sSeparator) . $this->sSeparator
-            . $oOutputFormat->spaceAfterListArgumentSeparator($this->sSeparator),
-            $this->aComponents
+        return $formatter->implode(
+            $formatter->spaceBeforeListArgumentSeparator($this->separator) . $this->separator
+            . $formatter->spaceAfterListArgumentSeparator($this->separator),
+            $this->components
         );
     }
 }
