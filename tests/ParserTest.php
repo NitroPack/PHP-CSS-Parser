@@ -83,6 +83,17 @@ final class ParserTest extends TestCase
         \closedir($directoryHandle);
     }
 
+    /**
+     * @test
+     */
+    public function parseElementorRules(): void 
+    {
+        $document = self::parsedStructureForFile('elementor-test');
+        $output = $document->render();
+
+        self::assertNotEquals('', $output);
+        self::assertStringContainsString('our-background-image', $output);
+    }
 
     /**
      * @depends files
