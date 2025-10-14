@@ -38,12 +38,19 @@ class Size extends PrimitiveValue
         'vmin',
         'vmax',
         'rem',
+        'svw',
+        'lvw',
+        'dvw',
+        'x',
+        'dppx',
+        'dpi',
+        'dpcm',
     ];
 
     /**
      * @var list<non-empty-string>
      */
-    private const RELATIVE_SIZE_UNITS = ['%', 'em', 'ex', 'ch', 'fr'];
+    private const RELATIVE_SIZE_UNITS = ['%', 'em', 'ex', 'ch', 'fr', 'cqw', 'cqh', 'cqi', 'cqb', 'cqmin', 'cqmax'];
 
     /**
      * @var list<non-empty-string>

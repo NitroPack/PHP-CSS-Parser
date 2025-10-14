@@ -53,6 +53,8 @@ class ParserState
      */
     private $lineNumber;
 
+    private $selectorBuffer;
+
     /**
      * @param string $text the complete CSS as text (i.e., usually the contents of a CSS file)
      * @param int<1, max> $lineNumber
@@ -63,6 +65,27 @@ class ParserState
         $this->text = $text;
         $this->lineNumber = $lineNumber;
         $this->setCharset($this->parserSettings->getDefaultCharset());
+        $this->selectorBuffer = "";
+    }
+
+    /**
+     * @param int $count
+     *
+     * @return void
+     */
+    public function bufferForSelector($count)
+    {
+        $this->selectorBuffer .= $this->consume($count);
+    }
+
+    /**
+     * @return string
+     */
+    public function consumeSelectorBuffer()
+    {
+        $result = $this->selectorBuffer;
+        $this->selectorBuffer = "";
+        return $result;
     }
 
     /**
@@ -168,7 +191,8 @@ class ParserState
                 $utf32EncodedCharacter .= \chr($codePoint & 0xff);
                 $codePoint = $codePoint >> 8;
             }
-            return iconv('utf-32le', $this->charset, $utf32EncodedCharacter);
+            // return iconv('utf-32le', $this->charset, $utf32EncodedCharacter);
+            return mb_convert_encoding($utf32EncodedCharacter, $this->charset, 'UTF-32LE');
         }
         if ($isForIdentifier) {
             $peek = \ord($this->peek());
@@ -203,12 +227,15 @@ class ParserState
             while (preg_match('/\\s/isSu', $this->peek()) === 1) {
                 $this->consume(1);
             }
-            if ($this->parserSettings->usesLenientParsing()) {
-                try {
-                    $comment = $this->consumeComment();
-                } catch (UnexpectedEOFException $e) {
-                    $this->currentPosition = \count($this->characters);
-                    break;
+            $comment = false;
+            if ($this->peek(1) == '/' && $this->peek(1, 1) == '*') {
+                if ($this->parserSettings->usesLenientParsing()) {
+                    try {
+                        $comment = $this->consumeComment();
+                    } catch (UnexpectedEOFException $e) {
+                        $this->currentPosition = \count($this->characters);
+                        break;
+                    }
                 }
             } else {
                 $comment = $this->consumeComment();
@@ -242,6 +269,9 @@ class ParserState
             return '';
         }
 
+        // this causes issues on Sabberworm\CSS\Tests\ParserTest::functionSyntax
+        // if ($iLength == 1 && $iOffset + 1 <= $this->iLength) {
+        //     return $this->aText[$iOffset];
         return $this->substr($offset, $length);
     }
 
@@ -274,6 +304,14 @@ class ParserState
             }
 
             $result = $this->substr($this->currentPosition, $value);
+
+            // this causes issues on Sabberworm\CSS\Tests\ParserTest::functionSyntax
+            // if ($value == 1 && $this->currentPosition + 1 <= \count($this->characters)) {
+            //     $result = $this->text[$this->currentPosition];
+            // } else {
+            //     $result = $this->substr($this->currentPosition, $value);
+            // } 
+
             $numberOfLines = \substr_count($result, "\n");
             $this->lineNumber += $numberOfLines;
             $this->currentPosition += $value;
@@ -357,9 +395,11 @@ class ParserState
                 return $consumedCharacters;
             }
             $consumedCharacters .= $character;
-            $comment = $this->consumeComment();
-            if ($comment instanceof Comment) {
-                $comments[] = $comment;
+            if ($this->peek(1) == '/' && $this->peek(1, 1) == '*') {
+                $comment = $this->consumeComment();
+                if ($comment instanceof Comment) {
+                    $comments[] = $comment;
+                }
             }
         }
 
@@ -444,7 +484,18 @@ class ParserState
     {
         if ($this->parserSettings->hasMultibyteSupport()) {
             if ($this->streql($this->charset, 'utf-8')) {
-                $result = preg_split('//u', $string, -1, PREG_SPLIT_NO_EMPTY);
+                // $result = preg_split('//u', $string, -1, PREG_SPLIT_NO_EMPTY);
+                $iLimit = 1024 * 1024;
+                $iLength = \mb_strlen($string, $this->charset);
+                $iOffset = 0;
+                $aResult = [];
+                for ($iOffset = 0; $iOffset < $iLength; $iOffset += $iLimit) {
+                    $sChunk = \mb_substr($string, $iOffset, $iLimit, 'utf-8');
+                    foreach (\preg_split('//u', $sChunk, -1, PREG_SPLIT_NO_EMPTY) as $sChar) {
+                        $aResult[] = $sChar;
+                    }
+                }
+                return $aResult;
             } else {
                 $length = \mb_strlen($string, $this->charset);
                 $result = [];

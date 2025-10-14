@@ -59,9 +59,9 @@ class Selector implements Renderable
     public static function isValid(string $selector): bool
     {
         // Note: We need to use `static::` here as the constant is overridden in the `KeyframeSelector` class.
-        $numberOfMatches = preg_match(static::SELECTOR_VALIDATION_RX, $selector);
+        $numberOfMatches = preg_match(static::SELECTOR_VALIDATION_RX, $selector) ;
 
-        return $numberOfMatches === 1;
+        return $numberOfMatches === 1 && \strpos($selector, ': ') === false;
     }
 
     public function __construct(string $selector)

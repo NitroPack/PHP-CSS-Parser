@@ -66,6 +66,12 @@ class DeclarationBlock implements CSSElement, CSSListItem, Positionable, RuleCon
         $result = new DeclarationBlock($parserState->currentLine());
         try {
             $selectors = [];
+
+            $selectorBuffer = $parserState->consumeSelectorBuffer();
+            if ($selectorBuffer) {
+                $selectorParts[] = $selectorBuffer;
+            }
+
             $selectorParts = [];
             $stringWrapperCharacter = null;
             $functionNestingLevel = 0;

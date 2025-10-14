@@ -94,95 +94,80 @@ class Color extends CSSFunction
         $parserState->consumeWhiteSpace();
         $parserState->consume('(');
 
-        // CSS Color Module Level 4 says that `rgb` and `rgba` are now aliases; likewise `hsl` and `hsla`.
-        // So, attempt to parse with the `a`, and allow for it not being there.
-        switch ($colorMode) {
-            case 'rgb':
-                $colorModeForParsing = 'rgba';
-                $mayHaveOptionalAlpha = true;
-                break;
-            case 'hsl':
-                $colorModeForParsing = 'hsla';
-                $mayHaveOptionalAlpha = true;
-                break;
-            case 'rgba':
-                // This is handled identically to the following case.
-            case 'hsla':
-                $colorModeForParsing = $colorMode;
-                $mayHaveOptionalAlpha = true;
-                break;
-            default:
-                $colorModeForParsing = $colorMode;
-                $mayHaveOptionalAlpha = false;
+        $containsVarOrCalc = false;
+        if (strpos($colorMode, 'rgb') !== false) {
+            $colorTarget = 'rgba';
+        } elseif (strpos($colorMode, 'hsl') !== false) {
+            $colorTarget = 'hsla';
+        } else {
+            $colorTarget = $colorMode;
         }
 
-        $containsVar = false;
-        $containsNone = false;
-        $isLegacySyntax = false;
-        $expectedArgumentCount = $parserState->strlen($colorModeForParsing);
+        $expectedArgumentCount = $parserState->strlen($colorTarget);
         for ($argumentIndex = 0; $argumentIndex < $expectedArgumentCount; ++$argumentIndex) {
             $parserState->consumeWhiteSpace();
-            $valueKey = $colorModeForParsing[$argumentIndex];
+            $valueKey = $colorTarget[$argumentIndex];
             if ($parserState->comes('var')) {
                 $colorValues[$valueKey] = CSSFunction::parseIdentifierOrFunction($parserState);
-                $containsVar = true;
-            } elseif (!$isLegacySyntax && $parserState->comes('none')) {
+                $containsVarOrCalc = true;
+            } elseif ($parserState->comes('none')) {
                 $colorValues[$valueKey] = $parserState->parseIdentifier();
-                $containsNone = true;
+                $containsVarOrCalc = true;
+            } elseif ($parserState->comes('calc')) {
+                $colorValues[$valueKey] = CalcFunction::parse($parserState);
+                $containsVarOrCalc = true;
             } else {
                 $colorValues[$valueKey] = Size::parse($parserState, true);
             }
 
             // This must be done first, to consume comments as well, so that the `comes` test will work.
             $parserState->consumeWhiteSpace();
-
-            // With a `var` argument, the function can have fewer arguments.
-            // And as of CSS Color Module Level 4, the alpha argument is optional.
-            $canCloseNow =
-                $containsVar
-                || ($mayHaveOptionalAlpha && $argumentIndex >= $expectedArgumentCount - 2);
-            if ($canCloseNow && $parserState->comes(')')) {
+                
+            if ($containsVarOrCalc && $parserState->comes(')')) {
                 break;
             }
 
-            // "Legacy" syntax is comma-delimited, and does not allow the `none` keyword.
-            // "Modern" syntax is space-delimited, with `/` as alpha delimiter.
-            // They cannot be mixed.
-            if ($argumentIndex === 0 && !$containsNone) {
-                // An immediate closing parenthesis is not valid.
-                if ($parserState->comes(')')) {
-                    throw new UnexpectedTokenException(
-                        'Color function with no arguments',
-                        '',
-                        'custom',
-                        $parserState->currentLine()
-                    );
-                }
-                $isLegacySyntax = $parserState->comes(',');
-            }
+            if ($argumentIndex < ($expectedArgumentCount - 1)) {
+                if ($parserState->comes(',')) {
+                        $parserState->consume(',');
+                    } elseif ($parserState->comes('/')) {
+                        // According to https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/rgb 
+                        // and https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/hsl 
+                        // '/' is used to separate the color from the alpha channel information
+                        // in rgb or hsl color functions (it is placed before the fourth argument). 
 
-            if ($isLegacySyntax && $argumentIndex < ($expectedArgumentCount - 1)) {
-                $parserState->consume(',');
-            }
+                        if (in_array($colorMode, ["hsl", "rgb"]) && count($colorValues) !== 3) {
+                            throw new UnexpectedTokenException(
+                                'Unexpected token',
+                                '/',
+                                'custom',
+                                $parserState->currentLine()
+                            );
+                        }
 
-            // In the "modern" syntax, the alpha value must be delimited with `/`.
-            if (!$isLegacySyntax) {
-                if ($containsVar) {
-                    // If the `var` substitution encompasses more than one argument,
-                    // the alpha deliminator may come at any time.
-                    if ($parserState->comes('/')) {
+                        // If we have a hsl or rgb color function with an alpha channel,
+                        // we need to switch the color mode to rgba or hsla accordingly.
+                        switch ($colorMode) {
+                            case "rgb":
+                                $colorMode = "rgba";
+                                break;
+                            case "hsl":
+                                $colorMode = "hsla";
+                                break;
+                            default:
+                                break;
+                        }
+
                         $parserState->consume('/');
+                    } elseif ($parserState->comes(')')) {
+                        // No alpha channel information
+                        break;
                     }
-                } elseif (($colorModeForParsing[$argumentIndex + 1] ?? '') === 'a') {
-                    // Alpha value is the next expected argument.
-                    // Since a closing parenthesis was not found, a `/` separator is now required.
-                    $parserState->consume('/');
-                }
             }
         }
         $parserState->consume(')');
 
-        return $containsVar
+        return $containsVarOrCalc
             ? new CSSFunction($colorMode, \array_values($colorValues), ',', $parserState->currentLine())
             : new Color($colorValues, $parserState->currentLine());
     }

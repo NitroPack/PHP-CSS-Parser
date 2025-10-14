@@ -62,4 +62,24 @@ class Document extends CSSBlockList
     {
         return true;
     }
+
+     /**
+     * Returns all `CSSFunction` objects recursively found in the tree, no matter how deeply nested the rule sets are.
+     * 
+     * @param CSSList|RuleSet|string $mElement
+     *        the `CSSList` or `RuleSet` to start the search from (defaults to the whole document).
+     *        If a string is given, it is used as rule name filter.
+     *
+     * @return array<int, CSSFunction>
+     */
+    public function getAllFunctions($mElement = null)
+    {
+        if ($mElement === null) {
+            $mElement = $this;
+        }
+        /** @var array<int, Value> $aResult */
+        $aResult = [];
+        $this->allFunctions($mElement, $aResult);
+        return $aResult;
+    }
 }

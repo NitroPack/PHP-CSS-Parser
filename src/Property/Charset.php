@@ -48,7 +48,7 @@ class Charset implements AtRule, Positionable
 
     public function getCharset(): string
     {
-        return $this->charset->getString();
+        return preg_replace('/;$/', '', $this->charset->getString());
     }
 
     /**
