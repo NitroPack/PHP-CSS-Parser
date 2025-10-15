@@ -59,7 +59,7 @@ class RuleSet implements CSSElement, CSSListItem, Positionable, RuleContainer
             $parserState->consume(';');
         }
 
-       // for elementor placeholders which look like blocks (e.g. .premium-global-cursor-{{ID}})
+        // for elementor placeholders which look like blocks (e.g. .premium-global-cursor-{{ID}})
         if ($parserState->comes('{')) {
             try {
                 // we need to skip until the actual block

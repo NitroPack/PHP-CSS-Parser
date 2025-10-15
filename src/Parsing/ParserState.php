@@ -269,9 +269,6 @@ class ParserState
             return '';
         }
 
-        // this causes issues on Sabberworm\CSS\Tests\ParserTest::functionSyntax
-        // if ($iLength == 1 && $iOffset + 1 <= $this->iLength) {
-        //     return $this->aText[$iOffset];
         return $this->substr($offset, $length);
     }
 
@@ -304,13 +301,6 @@ class ParserState
             }
 
             $result = $this->substr($this->currentPosition, $value);
-
-            // this causes issues on Sabberworm\CSS\Tests\ParserTest::functionSyntax
-            // if ($value == 1 && $this->currentPosition + 1 <= \count($this->characters)) {
-            //     $result = $this->text[$this->currentPosition];
-            // } else {
-            //     $result = $this->substr($this->currentPosition, $value);
-            // } 
 
             $numberOfLines = \substr_count($result, "\n");
             $this->lineNumber += $numberOfLines;
