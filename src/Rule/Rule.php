@@ -77,15 +77,15 @@ class Rule implements Commentable, CSSElement, Positionable
         $value = Value::parseValue($parserState, self::listDelimiterForRule($rule->getRule()));
         $rule->setValue($value);
         $parserState->consumeWhiteSpace();
-        if ($parserState->comes('!')) {
-            $parserState->consume('!');
+        if ($parserState->peek() == '!') {
+            $parserState->consume(1);
             $parserState->consumeWhiteSpace();
             $parserState->consume('important');
             $rule->setIsImportant(true);
         }
         $parserState->consumeWhiteSpace();
-        while ($parserState->comes(';')) {
-            $parserState->consume(';');
+        while ($parserState->peek() == ';') {
+            $parserState->consume(1);
         }
 
         return $rule;
