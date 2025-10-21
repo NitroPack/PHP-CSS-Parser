@@ -228,18 +228,18 @@ class ParserState
                 $this->consume(1);
             }
             $comment = false;
-            if ($this->peek(1) == '/' && $this->peek(1, 1) == '*') {
-                if ($this->parserSettings->usesLenientParsing()) {
-                    try {
-                        $comment = $this->consumeComment();
-                    } catch (UnexpectedEOFException $e) {
-                        $this->currentPosition = \count($this->characters);
-                        break;
-                    }
+
+            if ($this->parserSettings->usesLenientParsing()) {
+                try {
+                    $comment = $this->consumeComment();
+                } catch (UnexpectedEOFException $e) {
+                    $this->currentPosition = \count($this->characters);
+                    break;
                 }
             } else {
                 $comment = $this->consumeComment();
             }
+            
             if ($comment instanceof Comment) {
                 $comments[] = $comment;
             }
@@ -385,11 +385,9 @@ class ParserState
                 return $consumedCharacters;
             }
             $consumedCharacters .= $character;
-            if ($this->peek(1) == '/' && $this->peek(1, 1) == '*') {
-                $comment = $this->consumeComment();
-                if ($comment instanceof Comment) {
-                    $comments[] = $comment;
-                }
+
+            if ($comment = $this->consumeComment()) {
+                $comments[] = $comment;
             }
         }
 
