@@ -191,7 +191,7 @@ class ParserState
                 $utf32EncodedCharacter .= \chr($codePoint & 0xff);
                 $codePoint = $codePoint >> 8;
             }
-            // return iconv('utf-32le', $this->charset, $utf32EncodedCharacter);
+
             return mb_convert_encoding($utf32EncodedCharacter, $this->charset, 'UTF-32LE');
         }
         if ($isForIdentifier) {
@@ -474,7 +474,6 @@ class ParserState
     {
         if ($this->parserSettings->hasMultibyteSupport()) {
             if ($this->streql($this->charset, 'utf-8')) {
-                // $result = preg_split('//u', $string, -1, PREG_SPLIT_NO_EMPTY);
                 $iLimit = 1024 * 1024;
                 $iLength = \mb_strlen($string, $this->charset);
                 $iOffset = 0;
