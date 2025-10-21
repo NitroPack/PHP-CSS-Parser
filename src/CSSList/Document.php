@@ -82,4 +82,28 @@ class Document extends CSSBlockList
         $this->allFunctions($mElement, $aResult);
         return $aResult;
     }
+
+    /**
+     * Expands all shorthand properties to their long value.
+     *
+     * @deprecated since 8.7.0, will be removed without substitution in version 9.0 in #511
+     */
+    public function expandShorthands(): void
+    {
+        foreach ($this->getAllDeclarationBlocks() as $oDeclaration) {
+            $oDeclaration->expandShorthands();
+        }
+    }
+
+    /**
+     * Create shorthands properties whenever possible.
+     *
+     * @deprecated since 8.7.0, will be removed without substitution in version 9.0 in #511
+     */
+    public function createShorthands(): void
+    {
+        foreach ($this->getAllDeclarationBlocks() as $oDeclaration) {
+            $oDeclaration->createShorthands();
+        }
+    }
 }
