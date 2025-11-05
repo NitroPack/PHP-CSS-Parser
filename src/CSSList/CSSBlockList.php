@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sabberworm\CSS\CSSList;
 
 use Sabberworm\CSS\CSSElement;
+use Sabberworm\CSS\Property\Import;
 use Sabberworm\CSS\Property\Selector;
 use Sabberworm\CSS\Rule\Rule;
 use Sabberworm\CSS\RuleSet\DeclarationBlock;
@@ -96,6 +97,8 @@ abstract class CSSBlockList extends CSSList
                         $result,
                         $this->getAllValues($contentItem, $ruleSearchPattern, $searchInFunctionArguments)
                     );
+                } elseif ($contentItem instanceof Import) { // we need this to create an asset
+                    $result[] = $contentItem;
                 }
             }
         } elseif ($element instanceof RuleContainer) {
