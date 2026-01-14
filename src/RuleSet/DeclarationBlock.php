@@ -89,6 +89,22 @@ class DeclarationBlock implements CSSElement, CSSListItem, Positionable, RuleCon
                 $selectorParts[] = $parserState->consumeUntil($stopCharacters, false, false, $comments);
                 $nextCharacter = $parserState->peek();
                 $consumedNextCharacter = false;
+
+                // Check if this is a {{ placeholder - if so, consume the entire placeholder
+                if ($nextCharacter === '{' && !\is_string($stringWrapperCharacter) && $parserState->peek(2) === '{{') {
+                    // Consume the entire {{...}} placeholder
+                    $selectorParts[] = $parserState->consume(1); // First {
+                    $selectorParts[] = $parserState->consume(1); // Second {
+                    // Now consume until we find }}
+                    $selectorParts[] = $parserState->consumeUntil(['}'], false, false, $comments);
+                    if ($parserState->peek() === '}' && $parserState->peek(2) === '}}') {
+                        $selectorParts[] = $parserState->consume(1); // First }
+                        $selectorParts[] = $parserState->consume(1); // Second }
+                    }
+                    $consumedNextCharacter = true;
+                    $nextCharacter = $parserState->peek(); // Update nextCharacter after consuming placeholder
+                }
+
                 switch ($nextCharacter) {
                     case '\'':
                         // The fallthrough is intentional.

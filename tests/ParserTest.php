@@ -134,6 +134,7 @@ final class ParserTest extends TestCase
 
         self::assertNotEquals('', $output);
         self::assertStringContainsString('our-background-image', $output);
+        self::assertStringContainsString('premium-badge-text', $output);
     }
 
     /**

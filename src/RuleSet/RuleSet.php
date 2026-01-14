@@ -59,20 +59,6 @@ class RuleSet implements CSSElement, CSSListItem, Positionable, RuleContainer
             $parserState->consume(';');
         }
 
-        // for elementor placeholders which look like blocks (e.g. .premium-global-cursor-{{ID}})
-        if ($parserState->comes('{')) {
-            try {
-                // we need to skip until the actual block
-                while ($parserState->comes('{')) {
-                    $parserState->consume('{');
-                }
-                // move to the actual rule block
-                $parserState->consumeUntil('{', true);
-            } catch (UnexpectedTokenException $e) {
-                return;
-            }
-        }
-
         while (true) {
             $commentsBeforeRule = $parserState->consumeWhiteSpace();
             if ($parserState->comes('}')) {
