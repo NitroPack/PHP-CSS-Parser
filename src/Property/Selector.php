@@ -27,9 +27,6 @@ class Selector implements Renderable
                 # any sequence of valid unescaped characters, except quotes
                 [a-zA-Z0-9\\x{00A0}-\\x{FFFF}_^$|*=~\\[\\]()\\-\\s\\.:#+>,]++
                 |
-                # placeholder pattern like {{ID}} or {{ANYTHING}}
-                \\{\\{[^}]*+\\}\\}
-                |
                 # one or more escaped characters
                 (?:\\\\.)++
                 |
