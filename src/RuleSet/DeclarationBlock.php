@@ -90,16 +90,16 @@ class DeclarationBlock implements CSSElement, CSSListItem, Positionable, RuleCon
                 $nextCharacter = $parserState->peek();
                 $consumedNextCharacter = false;
 
-                // Check if this is a {{ placeholder - if so, consume and discard it
+                // Check if this is a {{ placeholder - if so, consume it as part of the selector
                 if ($nextCharacter === '{' && !\is_string($stringWrapperCharacter) && $parserState->peek(1, 1) === '{') {
-                    // Consume the entire {{...}} placeholder but don't add it to selectorParts
-                    $parserState->consume(1); // First {
-                    $parserState->consume(1); // Second {
+                    // Consume the entire {{...}} placeholder and add it to selectorParts
+                    $selectorParts[] = $parserState->consume(1); // First {
+                    $selectorParts[] = $parserState->consume(1); // Second {
                     // Now consume until we find }}
-                    $parserState->consumeUntil(['}'], false, false, $comments);
+                    $selectorParts[] = $parserState->consumeUntil(['}'], false, false, $comments);
                     if ($parserState->peek() === '}' && $parserState->peek(1, 1) === '}') {
-                        $parserState->consume(1); // First }
-                        $parserState->consume(1); // Second }
+                        $selectorParts[] = $parserState->consume(1); // First }
+                        $selectorParts[] = $parserState->consume(1); // Second }
                     }
                     $consumedNextCharacter = true;
                     $nextCharacter = $parserState->peek(); // Update nextCharacter after consuming placeholder
