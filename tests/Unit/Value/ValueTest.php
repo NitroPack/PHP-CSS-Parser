@@ -21,9 +21,7 @@ final class ValueTest extends TestCase
     /**
      * the default set of delimiters for parsing most values
      *
-     * @see \Sabberworm\CSS\Rule\Rule::listDelimiterForRule
-     *
-     * @var list<non-empty-string>
+     * @see \Sabberworm\CSS\Property\Declaration::getDelimitersForPropertyValue
      */
     private const DEFAULT_DELIMITERS = [',', ' ', '/'];
 
@@ -62,8 +60,42 @@ final class ValueTest extends TestCase
             self::DEFAULT_DELIMITERS
         );
 
-        self::assertInstanceOf(CSSFunction::class, $subject);
-        self::assertSame('max(300px,50vh ' . $operator . ' 10px)', $subject->render(OutputFormat::createCompact()));
+        $result = $subject->getArrayRepresentation();
+        self::assertSame(
+            [
+                'class' => 'CSSFunction',
+                'name' => 'max',
+                'components' => [
+                    [
+                        'class' => 'Size',
+                        'number' => 300.0,
+                        'unit' => 'px',
+                    ],
+                    [
+                        'class' => 'RuleValueList',
+                        'components' => [
+                            [
+                                'class' => 'Size',
+                                'number' => 50.0,
+                                'unit' => 'vh',
+                            ],
+                            [
+                                'class' => 'string',
+                                'value' => $operator,
+                            ],
+                            [
+                                'class' => 'Size',
+                                'number' => 10.0,
+                                'unit' => 'px',
+                            ],
+                        ],
+                        'separator' => ' ',
+                    ],
+                ],
+                'separator' => ',',
+            ],
+            $result
+        );
     }
 
     /**
@@ -142,5 +174,17 @@ final class ValueTest extends TestCase
             'max(300px,' . $leftOperand . ' + ' . $rightOperand . ')',
             $subject->render(OutputFormat::createCompact())
         );
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesClassName(): void
+    {
+        $subject = new ConcreteValue();
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame('ConcreteValue', $result['class']);
     }
 }

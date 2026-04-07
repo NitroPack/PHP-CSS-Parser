@@ -32,4 +32,40 @@ final class ImportTest extends TestCase
     {
         self::assertInstanceOf(CSSListItem::class, $this->subject);
     }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesClassName(): void
+    {
+        $subject = new Import(new URL(new CSSString('https://example.org/')), null);
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame('Import', $result['class']);
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesUri(): void
+    {
+        $uri = 'https://example.com';
+        $url = new URL(new CSSString($uri));
+
+        $subject = new Import($url, null);
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame(
+            [
+                'class' => 'URL',
+                'uri' => [
+                    'class' => 'CSSString',
+                    'contents' => $uri,
+                ],
+            ],
+            $result['uri']
+        );
+    }
 }

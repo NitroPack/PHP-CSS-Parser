@@ -8,6 +8,7 @@ use Sabberworm\CSS\OutputFormat;
 use Sabberworm\CSS\Parsing\ParserState;
 use Sabberworm\CSS\Parsing\UnexpectedEOFException;
 use Sabberworm\CSS\Parsing\UnexpectedTokenException;
+use Sabberworm\CSS\ShortClassNameProvider;
 
 use function Safe\preg_match;
 use function Safe\preg_replace;
@@ -17,10 +18,10 @@ use function Safe\preg_replace;
  */
 class Size extends PrimitiveValue
 {
+    use ShortClassNameProvider;
+
     /**
      * vh/vw/vm(ax)/vmin/rem are absolute insofar as they don’t scale to the immediate parent (only the viewport)
-     *
-     * @var list<non-empty-string>
      */
     private const ABSOLUTE_SIZE_UNITS = [
         'px',
@@ -40,14 +41,8 @@ class Size extends PrimitiveValue
         'rem',
     ];
 
-    /**
-     * @var list<non-empty-string>
-     */
     private const RELATIVE_SIZE_UNITS = ['%', 'em', 'ex', 'ch', 'fr'];
 
-    /**
-     * @var list<non-empty-string>
-     */
     private const NON_SIZE_UNITS = ['deg', 'grad', 'rad', 's', 'ms', 'turn', 'Hz', 'kHz'];
 
     /**
@@ -209,5 +204,20 @@ class Size extends PrimitiveValue
             ? preg_replace("/$decimalPoint?0+$/", '', \sprintf('%f', $this->size)) : (string) $this->size;
 
         return preg_replace(["/$decimalPoint/", '/^(-?)0\\./'], ['.', '$1.'], $size) . ($this->unit ?? '');
+    }
+
+    /**
+     * @return array<string, bool|int|float|string|array<mixed>|null>
+     *
+     * @internal
+     */
+    public function getArrayRepresentation(): array
+    {
+        return [
+            'class' => $this->getShortClassName(),
+            // 'number' is the official W3C terminology (not 'size')
+            'number' => $this->size,
+            'unit' => $this->unit,
+        ];
     }
 }

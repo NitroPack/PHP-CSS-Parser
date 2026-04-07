@@ -80,4 +80,35 @@ final class URLTest extends TestCase
 
         self::assertSame($lineNumber, $subject->getLineNumber());
     }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesClassName(): void
+    {
+        $subject = new URL(new CSSString('https://example.com'));
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame('URL', $result['class']);
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesUri(): void
+    {
+        $uri = 'https://example.com';
+        $subject = new URL(new CSSString($uri));
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame(
+            [
+                'class' => 'CSSString',
+                'contents' => $uri,
+            ],
+            $result['uri']
+        );
+    }
 }

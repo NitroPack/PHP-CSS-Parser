@@ -14,7 +14,7 @@ use Sabberworm\CSS\RuleSet\RuleSet;
  */
 final class RuleSetTest extends TestCase
 {
-    use RuleContainerTest;
+    use DeclarationListTests;
 
     /**
      * @var RuleSet
@@ -78,5 +78,15 @@ final class RuleSetTest extends TestCase
         $result = $subject->getLineNumber();
 
         self::assertSame($lineNumber, $result);
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationThrowsException(): void
+    {
+        $this->expectException(\BadMethodCallException::class);
+
+        $this->subject->getArrayRepresentation();
     }
 }

@@ -47,7 +47,7 @@ final class CommentTest extends TestCase
     /**
      * @test
      */
-    public function setCommentSetsComments(): void
+    public function setCommentSetsComment(): void
     {
         $comment = 'There is no spoon.';
         $subject = new Comment();
@@ -76,5 +76,30 @@ final class CommentTest extends TestCase
         $subject = new Comment('', $lineNumber);
 
         self::assertSame($lineNumber, $subject->getLineNumber());
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesClassName(): void
+    {
+        $subject = new Comment();
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame('Comment', $result['class']);
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesContents(): void
+    {
+        $contents = 'War. War never changes.';
+        $subject = new Comment($contents);
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame($contents, $result['contents']);
     }
 }

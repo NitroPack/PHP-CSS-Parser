@@ -31,4 +31,33 @@ final class CharsetTest extends TestCase
     {
         self::assertInstanceOf(CSSListItem::class, $this->subject);
     }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesClassName(): void
+    {
+        $result = $this->subject->getArrayRepresentation();
+
+        self::assertSame('Charset', $result['class']);
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesCharset(): void
+    {
+        $charset = 'iso-8859-15';
+        $subject = new Charset(new CSSString($charset));
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame(
+            [
+                'class' => 'CSSString',
+                'contents' => $charset,
+            ],
+            $result['charset']
+        );
+    }
 }

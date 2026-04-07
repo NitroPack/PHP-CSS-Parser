@@ -98,4 +98,40 @@ final class SizeTest extends TestCase
 
         self::assertSame($unit, $parsedSize->getUnit());
     }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesClassName(): void
+    {
+        $subject = new Size(1);
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame('Size', $result['class']);
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesNumber(): void
+    {
+        $subject = new Size(1);
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame(1.0, $result['number']);
+    }
+
+    /**
+     * @test
+     */
+    public function getArrayRepresentationIncludesUnit(): void
+    {
+        $subject = new Size(1, 'px');
+
+        $result = $subject->getArrayRepresentation();
+
+        self::assertSame('px', $result['unit']);
+    }
 }

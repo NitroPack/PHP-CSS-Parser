@@ -15,25 +15,18 @@ use Sabberworm\CSS\Parsing\OutputException;
  */
 final class OutputFormatTest extends TestCase
 {
-    /**
-     * @var string
-     */
-    private const TEST_CSS = <<<EOT
-
-.main, .test {
-	font: italic normal bold 16px/1.2 "Helvetica", Verdana, sans-serif;
-	background: white;
-}
-
-@media screen {
-	.main {
-		background-size: 100% 100%;
-		font-size: 1.3em;
-		background-color: #fff;
-	}
-}
-
-EOT;
+    private const TEST_CSS = "\n"
+    . ".main, .test {\n"
+    . "\tfont: italic normal bold 16px/1.2 \"Helvetica\", Verdana, sans-serif;\n"
+    . "\tbackground: white;\n"
+    . "}\n\n"
+    . "@media screen {\n"
+    . "\t.main {\n"
+    . "\t\tbackground-size: 100% 100%;\n"
+    . "\t\tfont-size: 1.3em;\n"
+    . "\t\tbackground-color: #fff;\n"
+    . "\t}\n"
+    . "}\n";
 
     /**
      * @var Parser
@@ -57,8 +50,8 @@ EOT;
     public function plain(): void
     {
         self::assertSame(
-            '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
-@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
+            ".main, .test {font: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;background: white;}\n"
+            . '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
             $this->document->render()
         );
     }
@@ -90,8 +83,8 @@ EOT;
     {
         self::assertSame(
             '.main, .test {font: italic   normal   bold   16px/  1.2   '
-            . '"Helvetica",  Verdana,  sans-serif;background: white;}'
-            . "\n@media screen {.main {background-size: 100%   100%;font-size: 1.3em;background-color: #fff;}}",
+            . "\"Helvetica\",  Verdana,  sans-serif;background: white;}\n"
+            . '@media screen {.main {background-size: 100%   100%;font-size: 1.3em;background-color: #fff;}}',
             $this->document->render(OutputFormat::create()->setSpaceAfterListArgumentSeparator('  '))
         );
     }
@@ -102,8 +95,8 @@ EOT;
     public function spaceAfterListArgumentSeparatorComplex(): void
     {
         self::assertSame(
-            '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",	Verdana,	sans-serif;background: white;}'
-            . "\n@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}",
+            ".main, .test {font: italic normal bold 16px/1.2 \"Helvetica\",\tVerdana,\tsans-serif;background: white;}\n"
+            . '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
             $this->document->render(
                 OutputFormat::create()
                     ->setSpaceAfterListArgumentSeparator(' ')
@@ -122,9 +115,9 @@ EOT;
     public function spaceAfterSelectorSeparator(): void
     {
         self::assertSame(
-            '.main,
-.test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
-@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
+            ".main,\n"
+            . ".test {font: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;background: white;}\n"
+            . '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
             $this->document->render(OutputFormat::create()->setSpaceAfterSelectorSeparator("\n"))
         );
     }
@@ -135,8 +128,8 @@ EOT;
     public function stringQuotingType(): void
     {
         self::assertSame(
-            '.main, .test {font: italic normal bold 16px/1.2 \'Helvetica\',Verdana,sans-serif;background: white;}
-@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
+            ".main, .test {font: italic normal bold 16px/1.2 'Helvetica',Verdana,sans-serif;background: white;}\n"
+            . '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
             $this->document->render(OutputFormat::create()->setStringQuotingType("'"))
         );
     }
@@ -147,8 +140,8 @@ EOT;
     public function rGBHashNotation(): void
     {
         self::assertSame(
-            '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
-@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: rgb(255,255,255);}}',
+            ".main, .test {font: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;background: white;}\n"
+            . '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: rgb(255,255,255);}}',
             $this->document->render(OutputFormat::create()->setRGBHashNotation(false))
         );
     }
@@ -159,8 +152,8 @@ EOT;
     public function semicolonAfterLastRule(): void
     {
         self::assertSame(
-            '.main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white}
-@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff}}',
+            ".main, .test {font: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;background: white}\n"
+            . '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff}}',
             $this->document->render(OutputFormat::create()->setSemicolonAfterLastRule(false))
         );
     }
@@ -171,8 +164,8 @@ EOT;
     public function spaceAfterRuleName(): void
     {
         self::assertSame(
-            '.main, .test {font:	italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background:	white;}
-@media screen {.main {background-size:	100% 100%;font-size:	1.3em;background-color:	#fff;}}',
+            ".main, .test {font:\titalic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;background:\twhite;}\n"
+            . "@media screen {.main {background-size:\t100% 100%;font-size:\t1.3em;background-color:\t#fff;}}",
             $this->document->render(OutputFormat::create()->setSpaceAfterRuleName("\t"))
         );
     }
@@ -187,15 +180,18 @@ EOT;
             ->setSpaceBetweenRules("\n")
             ->setSpaceAfterRules("\n");
 
-        self::assertSame('.main, .test {
-	font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;
-	background: white;
-}
-@media screen {.main {
-		background-size: 100% 100%;
-		font-size: 1.3em;
-		background-color: #fff;
-	}}', $this->document->render($outputFormat));
+        self::assertSame(
+            ".main, .test {\n"
+            . "\tfont: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;\n"
+            . "\tbackground: white;\n"
+            . "}\n"
+            . "@media screen {.main {\n"
+            . "\t\tbackground-size: 100% 100%;\n"
+            . "\t\tfont-size: 1.3em;\n"
+            . "\t\tbackground-color: #fff;\n"
+            . "\t}}",
+            $this->document->render($outputFormat)
+        );
     }
 
     /**
@@ -208,12 +204,14 @@ EOT;
             ->setSpaceBetweenBlocks("\n")
             ->setSpaceAfterBlocks("\n");
 
-        self::assertSame('
-.main, .test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
-@media screen {
-	.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}
-}
-', $this->document->render($outputFormat));
+        self::assertSame(
+            "\n"
+            . ".main, .test {font: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;background: white;}\n"
+            . "@media screen {\n"
+            . "\t.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}\n"
+            . "}\n",
+            $this->document->render($outputFormat)
+        );
     }
 
     /**
@@ -229,19 +227,21 @@ EOT;
             ->setSpaceBetweenBlocks("\n")
             ->setSpaceAfterBlocks("\n");
 
-        self::assertSame('
-.main, .test {
-	font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;
-	background: white;
-}
-@media screen {
-	.main {
-		background-size: 100% 100%;
-		font-size: 1.3em;
-		background-color: #fff;
-	}
-}
-', $this->document->render($outputFormat));
+        self::assertSame(
+            "\n"
+            . ".main, .test {\n"
+            . "\tfont: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;\n"
+            . "\tbackground: white;\n"
+            . "}\n"
+            . "@media screen {\n"
+            . "\t.main {\n"
+            . "\t\tbackground-size: 100% 100%;\n"
+            . "\t\tfont-size: 1.3em;\n"
+            . "\t\tbackground-color: #fff;\n"
+            . "\t}\n"
+            . "}\n",
+            $this->document->render($outputFormat)
+        );
     }
 
     /**
@@ -273,19 +273,21 @@ EOT;
             ->setSpaceAfterBlocks("\n")
             ->setIndentation('');
 
-        self::assertSame('
-.main, .test {
-font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;
-background: white;
-}
-@media screen {
-.main {
-background-size: 100% 100%;
-font-size: 1.3em;
-background-color: #fff;
-}
-}
-', $this->document->render($outputFormat));
+        self::assertSame(
+            "\n"
+            . ".main, .test {\n"
+            . "font: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;\n"
+            . "background: white;\n"
+            . "}\n"
+            . "@media screen {\n"
+            . ".main {\n"
+            . "background-size: 100% 100%;\n"
+            . "font-size: 1.3em;\n"
+            . "background-color: #fff;\n"
+            . "}\n"
+            . "}\n",
+            $this->document->render($outputFormat)
+        );
     }
 
     /**
@@ -297,8 +299,8 @@ background-color: #fff;
             ->setSpaceBeforeOpeningBrace('');
 
         self::assertSame(
-            '.main, .test{font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
-@media screen{.main{background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
+            ".main, .test{font: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;background: white;}\n"
+            . '@media screen{.main{background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
             $this->document->render($outputFormat)
         );
     }
@@ -316,8 +318,8 @@ background-color: #fff;
         $firstDeclarationBlock = $declarationBlocks[0];
         $firstDeclarationBlock->removeSelector('.main');
         self::assertSame(
-            '.test {font: italic normal bold 16px/1.2 "Helvetica",Verdana,sans-serif;background: white;}
-@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
+            ".test {font: italic normal bold 16px/1.2 \"Helvetica\",Verdana,sans-serif;background: white;}\n"
+            . '@media screen {.main {background-size: 100% 100%;font-size: 1.3em;background-color: #fff;}}',
             $this->document->render($outputFormat)
         );
         $firstDeclarationBlock->removeSelector('.test');

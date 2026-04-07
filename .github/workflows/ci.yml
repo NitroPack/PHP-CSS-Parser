@@ -20,7 +20,7 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
 
             - name: Install PHP
               uses: shivammathur/setup-php@v2
@@ -34,7 +34,7 @@ jobs:
               run: composer config --global --list
 
             - name: Cache dependencies installed with composer
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ~/.cache/composer
                   key: php${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.json') }}
@@ -47,7 +47,7 @@ jobs:
                   composer show;
 
             - name: PHP Lint
-              run: composer ci:php:lint
+              run: composer check:php:lint
 
     unit-tests:
         name: Unit tests
@@ -63,7 +63,7 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
 
             - name: Install PHP
               uses: shivammathur/setup-php@v2
@@ -77,7 +77,7 @@ jobs:
               run: composer config --global --list
 
             - name: Cache dependencies installed with composer
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ~/.cache/composer
                   key: php${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.json') }}
@@ -105,6 +105,7 @@ jobs:
                 command:
                     - composer:normalize
                     - php:fixer
+                    - php:codesniffer
                     - php:stan
                     - php:rector
                 php-version:
@@ -112,7 +113,7 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v5
+              uses: actions/checkout@v6
 
             - name: Install PHP
               uses: shivammathur/setup-php@v2
@@ -126,7 +127,7 @@ jobs:
               run: composer config --global --list
 
             - name: Cache dependencies installed with composer
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ~/.cache/composer
                   key: php${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.json') }}
@@ -145,4 +146,4 @@ jobs:
                   phive --no-progress install --trust-gpg-keys 0FDE18AE1D09E19F60F6B1CBC00543248C87FB13,BBAB5DF0A0D6672989CF1869E82B2FB314E9906E
 
             - name: Run Command
-              run: composer ci:${{ matrix.command }}
+              run: composer check:${{ matrix.command }}
