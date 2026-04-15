@@ -16,12 +16,22 @@ use Sabberworm\CSS\Parsing\UnexpectedTokenException;
 class Color extends CSSFunction
 {
     /**
+     * @var bool Whether this color was parsed using modern (space-separated) syntax.
+     */
+    private $isModernSyntax = false;
+
+    /**
      * @param array<non-empty-string, Value|string> $colorValues
      * @param int<1, max>|null $lineNumber
      */
     public function __construct(array $colorValues, ?int $lineNumber = null)
     {
         parent::__construct(\implode('', \array_keys($colorValues)), $colorValues, ',', $lineNumber);
+    }
+
+    public function setIsModernSyntax(bool $isModernSyntax): void
+    {
+        $this->isModernSyntax = $isModernSyntax;
     }
 
     /**
@@ -94,41 +104,38 @@ class Color extends CSSFunction
         $parserState->consumeWhiteSpace();
         $parserState->consume('(');
 
-        // CSS Color Module Level 4 says that `rgb` and `rgba` are now aliases; likewise `hsl` and `hsla`.
-        // So, attempt to parse with the `a`, and allow for it not being there.
-        switch ($colorMode) {
-            case 'rgb':
-                $colorModeForParsing = 'rgba';
-                $mayHaveOptionalAlpha = true;
-                break;
-            case 'hsl':
-                $colorModeForParsing = 'hsla';
-                $mayHaveOptionalAlpha = true;
-                break;
-            case 'rgba':
-                // This is handled identically to the following case.
-            case 'hsla':
-                $colorModeForParsing = $colorMode;
-                $mayHaveOptionalAlpha = true;
-                break;
-            default:
-                $colorModeForParsing = $colorMode;
-                $mayHaveOptionalAlpha = false;
+        $containsVarOrCalc = false;
+        if (\strpos($colorMode, 'rgb') !== false) {
+            $colorTarget = 'rgba';
+        } elseif (\strpos($colorMode, 'hsl') !== false) {
+            $colorTarget = 'hsla';
+        } else {
+            $colorTarget = $colorMode;
         }
 
-        $containsVar = false;
+        $expectedArgumentCount = $parserState->strlen($colorTarget);
+        $separatorStyle = null; // 'comma', 'space', or null (not yet determined)
         $containsNone = false;
-        $isLegacySyntax = false;
-        $expectedArgumentCount = $parserState->strlen($colorModeForParsing);
+        $hasSlash = false;
+
         for ($argumentIndex = 0; $argumentIndex < $expectedArgumentCount; ++$argumentIndex) {
             $parserState->consumeWhiteSpace();
-            $valueKey = $colorModeForParsing[$argumentIndex];
+
+            if ($parserState->comes(')')) {
+                break;
+            }
+
+            $valueKey = $colorTarget[$argumentIndex];
             if ($parserState->comes('var')) {
                 $colorValues[$valueKey] = CSSFunction::parseIdentifierOrFunction($parserState);
-                $containsVar = true;
-            } elseif (!$isLegacySyntax && $parserState->comes('none')) {
+                $containsVarOrCalc = true;
+            } elseif ($parserState->comes('none')) {
                 $colorValues[$valueKey] = $parserState->parseIdentifier();
+                $containsVarOrCalc = true;
                 $containsNone = true;
+            } elseif ($parserState->comes('calc')) {
+                $colorValues[$valueKey] = CalcFunction::parse($parserState);
+                $containsVarOrCalc = true;
             } else {
                 $colorValues[$valueKey] = Size::parse($parserState, true);
             }
@@ -136,55 +143,124 @@ class Color extends CSSFunction
             // This must be done first, to consume comments as well, so that the `comes` test will work.
             $parserState->consumeWhiteSpace();
 
-            // With a `var` argument, the function can have fewer arguments.
-            // And as of CSS Color Module Level 4, the alpha argument is optional.
-            $canCloseNow =
-                $containsVar
-                || ($mayHaveOptionalAlpha && $argumentIndex >= $expectedArgumentCount - 2);
-            if ($canCloseNow && $parserState->comes(')')) {
+            if ($containsVarOrCalc && $parserState->comes(')')) {
                 break;
             }
 
-            // "Legacy" syntax is comma-delimited, and does not allow the `none` keyword.
-            // "Modern" syntax is space-delimited, with `/` as alpha delimiter.
-            // They cannot be mixed.
-            if ($argumentIndex === 0 && !$containsNone) {
-                // An immediate closing parenthesis is not valid.
-                if ($parserState->comes(')')) {
-                    throw new UnexpectedTokenException(
-                        'Color function with no arguments',
-                        '',
-                        'custom',
-                        $parserState->currentLine()
-                    );
-                }
-                $isLegacySyntax = $parserState->comes(',');
-            }
-
-            if ($isLegacySyntax && $argumentIndex < ($expectedArgumentCount - 1)) {
-                $parserState->consume(',');
-            }
-
-            // In the "modern" syntax, the alpha value must be delimited with `/`.
-            if (!$isLegacySyntax) {
-                if ($containsVar) {
-                    // If the `var` substitution encompasses more than one argument,
-                    // the alpha deliminator may come at any time.
-                    if ($parserState->comes('/')) {
-                        $parserState->consume('/');
+            if ($argumentIndex < ($expectedArgumentCount - 1)) {
+                if ($parserState->comes(',')) {
+                    if ($separatorStyle === 'space') {
+                        throw new UnexpectedTokenException(
+                            'Mixed separators in color function',
+                            ',',
+                            'custom',
+                            $parserState->currentLine()
+                        );
                     }
-                } elseif (($colorModeForParsing[$argumentIndex + 1] ?? '') === 'a') {
-                    // Alpha value is the next expected argument.
-                    // Since a closing parenthesis was not found, a `/` separator is now required.
+                    $separatorStyle = 'comma';
+                    $parserState->consume(',');
+                } elseif ($parserState->comes('/')) {
+                    // According to https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/rgb
+                    // and https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/hsl
+                    // '/' is used to separate the color from the alpha channel information
+                    // in rgb or hsl color functions (it is placed before the fourth argument).
+                    if ($separatorStyle === 'comma') {
+                        throw new UnexpectedTokenException(
+                            'Unexpected token',
+                            '/',
+                            'custom',
+                            $parserState->currentLine()
+                        );
+                    }
+                    $separatorStyle = 'space';
+                    $hasSlash = true;
+
+                    if (!$containsVarOrCalc && \count($colorValues) !== 3) {
+                        throw new UnexpectedTokenException(
+                            'Unexpected token',
+                            '/',
+                            'custom',
+                            $parserState->currentLine()
+                        );
+                    }
+
+                    // If we have an hsl or rgb color function with an alpha channel,
+                    // we need to switch the color mode to rgba or hsla accordingly.
+                    switch ($colorMode) {
+                        case 'rgb':
+                            $colorMode = 'rgba';
+                            break;
+                        case 'hsl':
+                            $colorMode = 'hsla';
+                            break;
+                        default:
+                            break;
+                    }
+
                     $parserState->consume('/');
+                } elseif ($parserState->comes(')')) {
+                    // No alpha channel information
+                    break;
+                } else {
+                    if ($separatorStyle === 'comma') {
+                        throw new UnexpectedTokenException(
+                            'Mixed separators in color function',
+                            $parserState->peek(),
+                            'custom',
+                            $parserState->currentLine()
+                        );
+                    }
+                    $separatorStyle = 'space';
                 }
             }
         }
+
+        $argCount = \count($colorValues);
+
+        if (!$containsVarOrCalc) {
+            if ($argCount < 3) {
+                throw new UnexpectedTokenException(
+                    'Too few arguments in color function',
+                    (string) $argCount,
+                    'custom',
+                    $parserState->currentLine()
+                );
+            }
+        }
+
+        if ($separatorStyle === null && $argCount >= 2) {
+            $separatorStyle = 'space';
+        }
+
+        if ($separatorStyle === 'space' && $argCount === 4 && !$hasSlash) {
+            throw new UnexpectedTokenException(
+                'Modern syntax requires / before alpha',
+                '',
+                'custom',
+                $parserState->currentLine()
+            );
+        }
+
+        if ($containsNone && $separatorStyle === 'comma') {
+            throw new UnexpectedTokenException(
+                'none is not allowed in legacy (comma-separated) color syntax',
+                'none',
+                'custom',
+                $parserState->currentLine()
+            );
+        }
+
         $parserState->consume(')');
 
-        return $containsVar
-            ? new CSSFunction($colorMode, \array_values($colorValues), ',', $parserState->currentLine())
-            : new Color($colorValues, $parserState->currentLine());
+        if ($containsVarOrCalc && !$containsNone) {
+            return new CSSFunction($colorMode, \array_values($colorValues), ',', $parserState->currentLine());
+        }
+
+        $color = new Color($colorValues, $parserState->currentLine());
+        if ($separatorStyle === 'space') {
+            $color->setIsModernSyntax(true);
+        }
+        return $color;
     }
 
     private static function mapRange(float $value, float $fromMin, float $fromMax, float $toMin, float $toMax): float
@@ -321,7 +397,7 @@ class Color extends CSSFunction
      */
     private function shouldRenderInModernSyntax(): bool
     {
-        if ($this->hasNoneAsComponentValue()) {
+        if ($this->isModernSyntax && $this->hasNoneAsComponentValue()) {
             return true;
         }
 
@@ -333,22 +409,17 @@ class Color extends CSSFunction
         $hasNumber = false;
         foreach ($this->components as $key => $value) {
             if ($key === 'a') {
-                // Alpha can have units that don't match those of the RGB components in the "legacy" syntax.
-                // So it is not necessary to check it.  It's also always last, hence `break` rather than `continue`.
                 break;
             }
             if (!($value instanceof Size)) {
-                // Unexpected, unknown, or modified via the API
                 return false;
             }
             $unit = $value->getUnit();
-            // `switch` only does loose comparison
             if ($unit === null) {
                 $hasNumber = true;
             } elseif ($unit === '%') {
                 $hasPercentage = true;
             } else {
-                // Invalid unit
                 return false;
             }
         }

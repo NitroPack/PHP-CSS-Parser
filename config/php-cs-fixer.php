@@ -52,7 +52,9 @@ return (new Config())
             'combine_consecutive_unsets' => true,
             'dir_constant' => true,
             'is_null' => true,
-            'nullable_type_declaration' => true,
+            'nullable_type_declaration' => [
+                'syntax' => 'question_mark',
+            ],
 
             // namespace notation
             'no_leading_namespace_whitespace' => true,

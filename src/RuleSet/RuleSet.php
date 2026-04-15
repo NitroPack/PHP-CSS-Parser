@@ -71,9 +71,11 @@ class RuleSet implements CSSElement, CSSListItem, Positionable, DeclarationList
                     $declaration = Declaration::parse($parserState, $commentsBeforeDeclaration);
                 } catch (UnexpectedTokenException $e) {
                     try {
-                        $consumedText = $parserState->consumeUntil(["\n", ';', '}'], true);
+                        $consumedText = $parserState->consumeUntil(["\n", ';', '{', '}'], true);
                         // We need to “unfind” the matches to the end of the ruleSet as this will be matched later
-                        if ($parserState->streql(\substr($consumedText, -1), '}')) {
+                        if ($parserState->streql(substr($consumedText, -1), '{')) { // We need to skip the entire block
+                            $parserState->consumeUntil('}', true);
+                        } elseif ($parserState->streql(\substr($consumedText, -1), '}')) {
                             $parserState->backtrack(1);
                         } else {
                             while ($parserState->comes(';')) {

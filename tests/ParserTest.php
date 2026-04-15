@@ -83,6 +83,60 @@ final class ParserTest extends TestCase
         \closedir($directoryHandle);
     }
 
+     /**
+     * @test
+     */
+    public function expandShorthands(): void
+    {
+        $document = self::parsedStructureForFile('expand-shorthands');
+        $expected = 'body {margin: 1em !important;'
+            . 'padding: 2px 6px 3px;border: 2px solid #f0f;font: italic 500 14px/1.618 "Trebuchet MS",Georgia,serif;'
+            . 'background: #ccc url("/images/foo.png") no-repeat left top;}';
+        self::assertSame($expected, $document->render());
+        $document->expandShorthands();
+        $expected = 'body {margin-top: 1em !important;margin-right: 1em !important;margin-bottom: 1em !important;'
+            . 'margin-left: 1em !important;padding-top: 2px;padding-right: 6px;padding-bottom: 3px;'
+            . 'padding-left: 6px;border-top-color: #f0f;border-right-color: #f0f;border-bottom-color: #f0f;'
+            . 'border-left-color: #f0f;border-top-style: solid;border-right-style: solid;'
+            . 'border-bottom-style: solid;border-left-style: solid;border-top-width: 2px;'
+            . 'border-right-width: 2px;border-bottom-width: 2px;border-left-width: 2px;font-style: italic;'
+            . 'font-variant: normal;font-weight: 500;font-size: 14px;line-height: 1.618;'
+            . 'font-family: "Trebuchet MS",Georgia,serif;background-color: #ccc;'
+            . 'background-image: url("/images/foo.png");background-repeat: no-repeat;background-attachment: scroll;'
+            . 'background-position: left top;}';
+        self::assertSame($expected, $document->render());
+    }
+
+    /**
+     * @test
+     */
+    public function createShorthands(): void
+    {
+        $document = self::parsedStructureForFile('create-shorthands');
+        $expected = 'body {font-size: 2em;font-family: Helvetica,Arial,sans-serif;font-weight: bold;'
+            . 'border-width: 2px;border-color: #999;border-style: dotted;background-color: #fff;'
+            . 'background-image: url("foobar.png");background-repeat: repeat-y;margin-top: 2px;margin-right: 3px;'
+            . 'margin-bottom: 4px;margin-left: 5px;}';
+        self::assertSame($expected, $document->render());
+        $document->createShorthands();
+        $expected = 'body {font: bold 2em Helvetica,Arial,sans-serif;border: 2px dotted #999;'
+            . 'background: #fff url("foobar.png") repeat-y;margin: 2px 5px 4px 3px;}';
+        self::assertSame($expected, $document->render());
+    }
+
+    /**
+     * @test
+     */
+    public function parseElementorRules(): void 
+    {
+        $document = self::parsedStructureForFile('elementor-test');
+        $output = $document->render();
+
+        self::assertNotEquals('', $output);
+        self::assertStringContainsString('our-background-image', $output);
+        self::assertStringContainsString('premium-badge-text', $output);
+    }
+
     /**
      * @depends files
      *
@@ -162,9 +216,122 @@ final class ParserTest extends TestCase
             . 'background-color: rgb(255,var(--g),var(--b));background-color: rgb(255,255,var(--b));'
             . "background-color: rgb(255,var(--rg));background-color: hsl(var(--some-hsl));}\n"
             . '#variables-alpha {background-color: rgba(var(--some-rgb),.1);'
-            . 'background-color: rgba(var(--some-rg),255,.1);background-color: hsla(var(--some-hsl),.1);}',
+            . 'background-color: rgba(var(--some-rg),255,.1);background-color: hsla(var(--some-hsl),.1);}'
+             . "\n"
+            . '#css4-rgba {background-color: rgba(242,245,249,45%);background-color: #f2f5f9;}'
+            . "\n"
+            . '#calc {background-color: rgba(var(--some-rgb),calc(var(--some-alpha) * .1));'
+            . 'background-color: hsla(var(--some-hsl),calc(var(--some-alpha) * .1));}'
+            . "\n"
+            . '#hsl-calc {background-color: hsla(0,0%,10%,calc(1 - var(--hover,0) * .25));}'
+            . "\n"
+            . "#hsl-alpha-numeric {background-color: hsla(0,0%,10%,.5);}"
+            . "\n"
+            . '#rgb-calc {background-color: rgba(0,0%,10%,calc(1 - var(--hover,0) * .25));}'
+            . "\n"
+            . "#rgb-alpha-numeric {background-color: rgba(0 0% 10%/.5);}",
             $document->render()
         );
+    }
+
+     /**
+     * @test
+     */
+    public function parseExpressions(): void
+    {
+        $oDoc = self::parsedStructureForFile('expressions');
+        $sExpected = 'div {height: (vh - 10);}'
+            . "\n"
+            . 'div {height: (vh - 10)/2;}'
+            . "\n"
+            . 'div {height: max(5,(vh - 10));}';
+        self::assertSame($sExpected, $oDoc->render());
+    }
+
+    /**
+     * @test
+     */
+    public function incorrectRGBColors(): void
+    {
+        $oParser = new Parser(".info-img {border:1px solid #8C0000;background-color:#fffff;}");
+        $sExpected = ".info-img {border: 1px solid #8c0000;}";
+        $oDoc = $oParser->parse();
+        self::assertSame($sExpected, $oDoc->render());
+    }
+
+    /**
+     * @test
+     */
+    public function imagesetInFile(): void
+    {
+        $oDoc = self::parsedStructureForFile('image-set', Settings::create()->withMultibyteSupport(true));
+        $sExpected = sprintf(
+            '%s%s%s',
+            '.home_banner {background-image: image-set(url("https://www.example.us/images/home-banner.webp") 1x,',
+            'url("https://www.example.us/images/home-banner@2x.webp") 2x,',
+            'url("https://www.example.us/images/home-banner@3x.webp") 3x);}'
+        );
+        self::assertSame($sExpected, $oDoc->render());
+    }
+
+    /**
+     * @test
+     */
+    public function functionArithmeticInFile(): void
+    {
+        $oDoc = self::parsedStructureForFile('function-arithmetic', Settings::create()->withMultibyteSupport(true));
+        $sExpected = 'div {height: max(300,vh + 10);}
+div {height: max(300,vh - 10);}
+div {height: max(300,vh * 10);}
+div {height: max(300,vh / 10);}';
+        self::assertSame($sExpected, $oDoc->render());
+    }
+
+    /**
+     * @test
+     */
+    public function infiniteLoopInFile(): void
+    {
+        $oDoc = self::parsedStructureForFile('infinite-loop', Settings::create()->withMultibyteSupport(true));
+        $sExpected = 'div {}';
+        self::assertSame($sExpected, $oDoc->render());
+    }
+
+     /**
+     * @test
+     */
+    public function invalidRulesInFile(): void
+    {
+        $oDoc = $this->parsedStructureForFile('invalid-rule', Settings::create()->withMultibyteSupport(true));
+        $sExpected = 'fusion-max-sh-shbp {}
+@media only screen and (max-width: 800px) {.has-sidebar #content {order: 1;}
+	.has-sidebar #sidebar {order: 2;margin-top: 50px;}
+	.has-sidebar #sidebar-2 {order: 3;margin-top: 50px;}}';
+        self::assertSame($sExpected, $oDoc->render());
+    }
+
+    /**
+     * @test
+     */
+    public function invalidHslOrRgbInFile(): void 
+    {
+        $oDoc = self::parsedStructureForFile('invalid-hsl-rgb', Settings::create()->withMultibyteSupport(true));
+        $sExpected = '#hsl-1 {}'
+        . "\n"
+        . '#hsl-2 {}'
+        . "\n"
+        . '#hsl-3 {}'
+        . "\n"
+        . '#hsl-4 {}'
+        . "\n"
+        . "#rgb-1 {}"
+        . "\n"
+        . '#rgb-2 {}'
+        . "\n"
+        . '#rgb-3 {}'
+        . "\n"
+        . '#rgb-4 {}';
+        self::assertSame($sExpected, $oDoc->render());
     }
 
     /**
@@ -593,8 +760,8 @@ div {width: calc(50% - ( ( 4% ) * .5 ));}';
     public function invalidCalcInFile(): void
     {
         $document = self::parsedStructureForFile('calc-invalid', Settings::create()->withMultibyteSupport(true));
-        $expected = 'div {}
-div {}
+        $expected = 'div {height: calc (25% - 1em);}
+div {height: calc (25% - 1em);}
 div {}
 div {height: -moz-calc;}
 div {height: calc;}';
@@ -696,6 +863,16 @@ div {height: calc;}';
 .super-menu.menu-floated {border-right-width: 1px;border-left-width: 1px;border-color: #5a4242;border-style: dotted;}
 body {background-color: red;}';
         self::assertSame($expected, $document->render());
+
+        $oDoc = $this->parsedStructureForFile('invalid-selectors-3', Settings::create()->withMultibyteSupport(true));
+        $sExpected = '#test {color: #fff;}
+@media only screen and (max-width:30000px) {#test2 {color: #fff;}}';
+        self::assertSame($sExpected, $oDoc->render());
+
+        $oDoc = self::parsedStructureForFile('invalid-selectors-4', Settings::create()->withMultibyteSupport(true));
+        $sExpected = 'body, div :hover {color: green;}
+div {color: blue;}';
+        self::assertSame($sExpected, $oDoc->render());
     }
 
     /**

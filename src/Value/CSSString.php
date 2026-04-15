@@ -78,12 +78,18 @@ class CSSString extends PrimitiveValue
         return new CSSString($result, $parserState->currentLine());
     }
 
-    public function setString(string $string): void
+    /**
+     * @param string|object $string string or Asset
+     */
+    public function setString(string|object $string): void
     {
         $this->string = $string;
     }
 
-    public function getString(): string
+    /**
+     * @return string|object string or Asset
+     */
+    public function getString(): string|object
     {
         return $this->string;
     }
@@ -94,7 +100,7 @@ class CSSString extends PrimitiveValue
     public function render(OutputFormat $outputFormat): string
     {
         return $outputFormat->getStringQuotingType()
-            . $this->escape($this->string, $outputFormat)
+            . $this->escape((string) $this->string, $outputFormat)
             . $outputFormat->getStringQuotingType();
     }
 

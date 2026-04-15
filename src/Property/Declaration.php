@@ -78,15 +78,15 @@ class Declaration implements Commentable, CSSElement, Positionable
         $value = Value::parseValue($parserState, self::getDelimitersForPropertyValue($declaration->getPropertyName()));
         $declaration->setValue($value);
         $parserState->consumeWhiteSpace();
-        if ($parserState->comes('!')) {
-            $parserState->consume('!');
+        if ($parserState->peek() == '!') {
+            $parserState->consume(1);
             $parserState->consumeWhiteSpace();
             $parserState->consume('important');
             $declaration->setIsImportant(true);
         }
         $parserState->consumeWhiteSpace();
-        while ($parserState->comes(';')) {
-            $parserState->consume(';');
+        while ($parserState->peek() == ';') {
+            $parserState->consume(1);
         }
 
         return $declaration;

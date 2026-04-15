@@ -27,3 +27,29 @@
     background-color: rgba(var(--some-rg), 255, 0.1);
     background-color: hsla(var(--some-hsl), 0.1);
 }
+
+#css4-rgba {
+	background-color: rgb(242 245 249 / 45%);
+	background-color: rgba(242 245 249);
+}
+
+#calc {
+	background-color: rgba(var(--some-rgb), calc(var(--some-alpha) * 0.1));
+	background-color: hsla(var(--some-hsl), calc(var(--some-alpha) * 0.1));
+}
+
+#hsl-calc {
+	background-color: hsl(0 0% 10% / calc(1 - var(--hover, 0) * 0.25));
+}
+
+#hsl-alpha-numeric {
+	background-color: hsl(0 0% 10% / 0.5);
+}
+
+#rgb-calc {
+	background-color: rgb(0 0% 10% / calc(1 - var(--hover, 0) * 0.25));
+}
+
+#rgb-alpha-numeric {
+	background-color: rgb(0 0% 10% / 0.5);
+}

@@ -36,6 +36,9 @@ class Selector implements Renderable
                 # any sequence of valid unescaped characters, except quotes
                 [a-zA-Z0-9\\x{00A0}-\\x{FFFF}_^$|*=~\\[\\]()\\-\\s\\.:#+>,]++
                 |
+                # placeholder pattern like {{ID}} or {{ANYTHING}}
+                \\{\\{[^}]*+\\}\\}
+                |
                 # one or more escaped characters
                 (?:\\\\.)++
                 |
@@ -70,7 +73,7 @@ class Selector implements Renderable
         // Note: We need to use `static::` here as the constant is overridden in the `KeyframeSelector` class.
         $numberOfMatches = preg_match(static::SELECTOR_VALIDATION_RX, $selector);
 
-        return $numberOfMatches === 1;
+        return $numberOfMatches === 1 && \strpos($selector, ': ') === false;
     }
 
     /**
