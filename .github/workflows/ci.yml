@@ -10,20 +10,29 @@ on:
 
 name: CI
 
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
     php-lint:
         name: PHP Lint
         runs-on: ubuntu-22.04
         strategy:
             matrix:
-                php-version: [ '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5' ]
+                php-version: [ '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5', '8.6' ]
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                persist-credentials: false
 
             - name: Install PHP
-              uses: shivammathur/setup-php@v2
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
                   php-version: ${{ matrix.php-version }}
                   ini-file: development
@@ -34,7 +43,7 @@ jobs:
               run: composer config --global --list
 
             - name: Cache dependencies installed with composer
-              uses: actions/cache@v5
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.cache/composer
                   key: php${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.json') }}
@@ -59,14 +68,16 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                php-version: [ '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5' ]
+                php-version: [ '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5', '8.6' ]
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                persist-credentials: false
 
             - name: Install PHP
-              uses: shivammathur/setup-php@v2
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
                   php-version: ${{ matrix.php-version }}
                   ini-file: development
@@ -77,7 +88,7 @@ jobs:
               run: composer config --global --list
 
             - name: Cache dependencies installed with composer
-              uses: actions/cache@v5
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.cache/composer
                   key: php${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.json') }}
@@ -90,7 +101,7 @@ jobs:
                   composer show;
 
             - name: Run Tests
-              run: ./vendor/bin/phpunit
+              run: composer check:tests:unit
 
     static-analysis:
         name: Static Analysis
@@ -104,8 +115,8 @@ jobs:
             matrix:
                 command:
                     - composer:normalize
-                    - php:fixer
-                    - php:codesniffer
+                    - php:cs-fixer
+                    - php:sniff
                     - php:stan
                     - php:rector
                 php-version:
@@ -113,10 +124,12 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                persist-credentials: false
 
             - name: Install PHP
-              uses: shivammathur/setup-php@v2
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
                   php-version: ${{ matrix.php-version }}
                   ini-file: development
@@ -127,7 +140,7 @@ jobs:
               run: composer config --global --list
 
             - name: Cache dependencies installed with composer
-              uses: actions/cache@v5
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.cache/composer
                   key: php${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.json') }}

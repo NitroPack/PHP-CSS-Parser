@@ -97,9 +97,9 @@ final class SelectorTest extends TestCase
             'escaped backslash before escaped quote' => ['a[data-test="test\\\\\\"value"]'],
             'triple backslash before quote' => ['a[data-test="test\\\\\\""]'],
             'escaped single quotes in selector itself, with other escaped characters'
-                => ['.before\\:content-\\[\\\'\\\'\\]:before'],
+            => ['.before\\:content-\\[\\\'\\\'\\]:before'],
             'escaped double quotes in selector itself, with other escaped characters'
-                => ['.before\\:content-\\[\\"\\"\\]:before'],
+            => ['.before\\:content-\\[\\"\\"\\]:before'],
         ];
     }
 
@@ -521,6 +521,18 @@ final class SelectorTest extends TestCase
     public function isValidForInvalidSelectorReturnsFalse(string $selector): void
     {
         self::assertFalse(Selector::isValid($selector));
+    }
+
+    /**
+     * @test
+     */
+    public function isValidThrowsForSelectorThatIsNotValidUtf8(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('The selector is not valid UTF-8.');
+        $this->expectExceptionCode(1787284398);
+
+        Selector::isValid("a\xFF");
     }
 
     /**

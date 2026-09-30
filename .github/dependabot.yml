@@ -8,7 +8,9 @@ updates:
           interval: "daily"
       commit-message:
           prefix: "[Dependabot] "
-      milestone: 12
+      milestone: 14
+      cooldown:
+        default-days: 7
 
     - package-ecosystem: "composer"
       directory: "/"
@@ -21,9 +23,9 @@ updates:
         - dependency-name: "phpunit/phpunit"
           versions: [ ">= 9.0.0" ]
         - dependency-name: "rector/rector"
-        - dependency-name: "thecodingmachine/safe"
-        - dependency-name: "thecodingmachine/phpstan-safe-rule"
       versioning-strategy: "increase"
       commit-message:
           prefix: "[Dependabot] "
-      milestone: 12
+      milestone: 14
+      cooldown:
+        default-days: 7

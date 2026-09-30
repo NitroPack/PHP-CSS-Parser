@@ -30,9 +30,6 @@ use Sabberworm\CSS\Value\Size;
 use Sabberworm\CSS\Value\URL;
 use Sabberworm\CSS\Value\ValueList;
 
-use function Safe\file_get_contents;
-use function Safe\opendir;
-
 /**
  * @covers \Sabberworm\CSS\Parser
  */
@@ -61,7 +58,7 @@ final class ParserTest extends TestCase
     public function files(): void
     {
         $directory = __DIR__ . '/fixtures';
-        $directoryHandle = opendir($directory);
+        $directoryHandle = \opendir($directory);
 
         /* This is the correct way to loop over the directory. */
         while (false !== ($filename = \readdir($directoryHandle))) {
@@ -76,7 +73,7 @@ final class ParserTest extends TestCase
                 // or a future test of an as-of-now missing feature
                 continue;
             }
-            $parser = new Parser(file_get_contents($directory . '/' . $filename));
+            $parser = new Parser(\file_get_contents($directory . '/' . $filename));
             self::assertNotSame('', $parser->parse()->render());
         }
 
@@ -150,9 +147,6 @@ final class ParserTest extends TestCase
                 $colorDeclarations = $declarationBlock->getDeclarations('outline-color');
                 self::assertEmpty($colorDeclarations);
             }
-        }
-        foreach ($document->getAllValues(null, 'color') as $colorValue) {
-            self::assertSame('red', $colorValue);
         }
         self::assertSame(
             '#mine {color: red;border-color: #0a64e6;border-color: rgba(10,100,231,.3);outline-color: #222;'
@@ -341,7 +335,6 @@ body {color: green;}',
         $document = self::parsedStructureForFile('values');
         $declarationBlocks = $document->getAllDeclarationBlocks();
         $headerBlock = $declarationBlocks[0];
-        $bodyBlock = $declarationBlocks[1];
         $backgroundHeaderDeclarations = $headerBlock->getDeclarations('background-');
         self::assertCount(2, $backgroundHeaderDeclarations);
         self::assertSame('background-color', $backgroundHeaderDeclarations[0]->getPropertyName());
@@ -899,7 +892,7 @@ body {background-color: red;}';
     public static function parsedStructureForFile($filename, $settings = null): Document
     {
         $filename = __DIR__ . "/fixtures/$filename.css";
-        $parser = new Parser(file_get_contents($filename), $settings);
+        $parser = new Parser(\file_get_contents($filename), $settings);
         return $parser->parse();
     }
 
@@ -1128,7 +1121,7 @@ body {background-color: red;}';
     {
         $this->expectException(UnexpectedTokenException::class);
 
-        $document = self::parsedStructureForFile('ms-filter', Settings::create()->beStrict());
+        self::parsedStructureForFile('ms-filter', Settings::create()->beStrict());
     }
 
     /**

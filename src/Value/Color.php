@@ -90,9 +90,19 @@ class Color extends CSSFunction
     {
         $colorValues = [];
 
+        $anchor = $parserState->anchor();
         $colorMode = $parserState->parseIdentifier(true);
         $parserState->consumeWhiteSpace();
         $parserState->consume('(');
+
+        // CSS Color Level 5 relative color syntax: e.g. hsl(from <color> h s l / alpha).
+        // The `from` keyword is not supported by this parser's color-channel logic,
+        // so fall back to generic CSSFunction parsing to preserve the value.
+        $parserState->consumeWhiteSpace();
+        if ($parserState->comes('from', true)) {
+            $anchor->backtrack();
+            return CSSFunction::parse($parserState, true);
+        }
 
         // CSS Color Module Level 4 says that `rgb` and `rgba` are now aliases; likewise `hsl` and `hsla`.
         // So, attempt to parse with the `a`, and allow for it not being there.
@@ -138,8 +148,8 @@ class Color extends CSSFunction
 
             // With a `var` argument, the function can have fewer arguments.
             // And as of CSS Color Module Level 4, the alpha argument is optional.
-            $canCloseNow =
-                $containsVar
+            $canCloseNow
+                = $containsVar
                 || ($mayHaveOptionalAlpha && $argumentIndex >= $expectedArgumentCount - 2);
             if ($canCloseNow && $parserState->comes(')')) {
                 break;
@@ -237,16 +247,6 @@ class Color extends CSSFunction
         }
 
         return parent::render($outputFormat);
-    }
-
-    /**
-     * @return array<string, bool|int|float|string|array<mixed>|null>
-     *
-     * @internal
-     */
-    public function getArrayRepresentation(): array
-    {
-        throw new \BadMethodCallException('`getArrayRepresentation` is not yet implemented for `' . self::class . '`');
     }
 
     private function shouldRenderAsHex(OutputFormat $outputFormat): bool

@@ -97,9 +97,9 @@ final class CompoundSelectorTest extends TestCase
             'escaped backslash before escaped quote' => ['a[data-test="test\\\\\\"value"]'],
             'triple backslash before quote' => ['a[data-test="test\\\\\\""]'],
             'escaped single quotes in selector itself, with other escaped characters'
-                => [".before\\:content-\\[\\'\\'\\]:before"],
+            => [".before\\:content-\\[\\'\\'\\]:before"],
             'escaped double quotes in selector itself, with other escaped characters'
-                => ['.before\\:content-\\[\\"\\"\\]:before'],
+            => ['.before\\:content-\\[\\"\\"\\]:before'],
         ];
     }
 
@@ -369,6 +369,18 @@ final class CompoundSelectorTest extends TestCase
         $this->expectException(\UnexpectedValueException::class);
 
         new CompoundSelector($value);
+    }
+
+    /**
+     * @test
+     */
+    public function constructorThrowsForValueThatIsNotValidUtf8(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('The selector is not valid UTF-8.');
+        $this->expectExceptionCode(1787283476);
+
+        new CompoundSelector("a\xFF");
     }
 
     /**
