@@ -51,6 +51,9 @@ class CompoundSelector implements Component
                     # one or more escaped characters
                     (?:\\\\.)++
                     |
+                    # template placeholder (e.g. {{variable}})
+                    (?:\\{\\{[^}]*+\\}\\})
+                    |
                     # quoted text, like in `[id="example"]`
                     (?:
                         # opening quote
@@ -168,6 +171,16 @@ class CompoundSelector implements Component
                     }
                     break;
                 case '{':
+                    if (!\is_string($stringWrapperCharacter) && $parserState->peek(1, 1) === '{') {
+                        $selectorParts[] = $parserState->consume(1); // First {
+                        $selectorParts[] = $parserState->consume(1); // Second {
+                        $selectorParts[] = $parserState->consumeUntil(['}'], false, false, $comments);
+                        if ($parserState->peek() === '}' && $parserState->peek(1, 1) === '}') {
+                            $selectorParts[] = $parserState->consume(1); // First }
+                            $selectorParts[] = $parserState->consume(1); // Second }
+                        }
+                        continue 2;
+                    }
                     // The fallthrough is intentional.
                 case '}':
                     if (!\is_string($stringWrapperCharacter)) {
@@ -280,6 +293,6 @@ class CompoundSelector implements Component
             throw new \RuntimeException('The selector is not valid UTF-8.', 1787283476);
         }
 
-        return $numberOfMatches === 1;
+        return $numberOfMatches === 1 && \substr($value, -1) !== ':';
     }
 }
